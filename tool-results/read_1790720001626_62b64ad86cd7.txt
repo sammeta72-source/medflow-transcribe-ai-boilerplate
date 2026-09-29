@@ -1,0 +1,566 @@
+     1→"use client";
+     2→// MedFlow — Job detail drawer (right-side Sheet, wide, with tabs).
+     3→
+     4→import { useEffect, useState } from "react";
+     5→import { motion } from "framer-motion";
+     6→import {
+     7→  Activity, AlertTriangle, Bot, CheckCircle2, ClipboardCopy, Clock, FileJson,
+     8→  FileText, ListTree, MessageCircleQuestion, Mic, Pencil, Play, RefreshCw, Send,
+     9→  ShieldCheck, Stethoscope, ThumbsUp, XCircle,
+    10→} from "lucide-react";
+    11→import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+    12→import { Badge } from "@/components/ui/badge";
+    13→import { Button } from "@/components/ui/button";
+    14→import { Card, CardContent } from "@/components/ui/card";
+    15→import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+    16→import { ScrollArea } from "@/components/ui/scroll-area";
+    17→import { Sheet, SheetContent } from "@/components/ui/sheet";
+    18→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    19→import { runAgent, fetchFhir, fetchHl7 } from "@/lib/medflow/api";
+    20→import {
+    21→  PRIORITY_STYLES, RISK_SEVERITY_STYLES, STATUS_META,
+    22→} from "@/lib/medflow/constants";
+    23→import {
+    24→  formatDateTime, formatDuration, formatRelative, formatSlaRemaining, pct,
+    25→} from "@/lib/medflow/format";
+    26→import type { JobWithRelations } from "@/lib/medflow/types";
+    27→import { toast } from "sonner";
+    28→import { cn } from "@/lib/utils";
+    29→
+    30→interface Props {
+    31→  job: JobWithRelations | null;
+    32→  onClose: () => void;
+    33→  onAdvanced: () => void;
+    34→}
+    35→
+    36→const TABS = [
+    37→  { id: "overview", label: "Overview", icon: FileText },
+    38→  { id: "transcript", label: "Transcript", icon: Mic },
+    39→  { id: "structured", label: "Structured Doc", icon: ClipboardCopy },
+    40→  { id: "qa", label: "QA Findings", icon: ShieldCheck },
+    41→  { id: "timeline", label: "Timeline", icon: ListTree },
+    42→  { id: "delivery", label: "Delivery", icon: Send },
+    43→];
+    44→
+    45→export function JobDetailDrawer({ job, onClose, onAdvanced }: Props) {
+    46→  const [tab, setTab] = useState("overview");
+    47→  const [running, setRunning] = useState<string | null>(null);
+    48→  const [fhirOpen, setFhirOpen] = useState(false);
+    49→  const [hl7Open, setHl7Open] = useState(false);
+    50→  const [fhirPayload, setFhirPayload] = useState<string>("");
+    51→  const [hl7Payload, setHl7Payload] = useState<string>("");
+    52→
+    53→  useEffect(() => { if (job) setTab("overview"); }, [job]);
+    54→
+    55→  if (!job) return null;
+    56→  const statusMeta = STATUS_META[job.status] ?? STATUS_META.Draft;
+    57→  const priorityStyle = PRIORITY_STYLES[job.priority];
+    58→  const sla = formatSlaRemaining(job.slaDeadline);
+    59→  const slaToneClass =
+    60→    sla.tone === "danger" ? "text-red-600"
+    61→    : sla.tone === "warn" ? "text-amber-600"
+    62→    : "text-emerald-600";
+    63→
+    64→  async function handleRunAgent(agentId: string, label: string) {
+    65→    setRunning(agentId);
+    66→    try {
+    67→      const run = await runAgent(agentId, job!.jobNumber);
+    68→      const out = run.output ?? {};
+    69→      let summary = "Agent finished";
+    70→      if (agentId === "transcription") {
+    71→        const conf = typeof out.confidence === "number" ? pct(out.confidence) : "—";
+    72→        const txt = typeof out.transcript === "string" ? out.transcript.slice(0, 80) : JSON.stringify(out);
+    73→        summary = `Transcription ${conf} confidence · ${txt}…`;
+    74→      } else if (agentId === "qa") {
+    75→        const qs = typeof out.quality_score === "number" ? out.quality_score : "—";
+    76→        const rs = typeof out.risk_severity === "string" ? out.risk_severity : "—";
+    77→        const fc = Array.isArray(out.findings) ? out.findings.length : 0;
+    78→        summary = `QA score ${qs} · risk ${rs} · ${fc} findings`;
+    79→      } else if (agentId === "allocation") {
+    80→        const an = typeof out.assigned_user_name === "string" ? out.assigned_user_name : "—";
+    81→        summary = `Allocated to ${an}`;
+    82→      } else if (agentId === "delivery") {
+    83→        summary = typeof out.method === "string" ? `Delivered via ${out.method}` : "Delivered";
+    84→      } else {
+    85→        summary = `${label} succeeded · ${run.duration_ms}ms · ${run.cost_usd.toFixed(4)} cost`;
+    86→      }
+    87→      toast.success(`${label} ran successfully`, { description: summary });
+    88→      onAdvanced();
+    89→    } catch (e) {
+    90→      console.error(e);
+    91→      toast.error(`${label} failed`, { description: (e as Error).message });
+    92→    } finally {
+    93→      setRunning(null);
+    94→    }
+    95→  }
+    96→
+    97→  async function handleViewFhir() {
+    98→    setFhirOpen(true);
+    99→    setFhirPayload("Loading…");
+   100→    try {
+   101→      const payload = await fetchFhir(job!.jobNumber);
+   102→      setFhirPayload(JSON.stringify(payload, null, 2));
+   103→    } catch (e) {
+   104→      setFhirPayload(`Error: ${(e as Error).message}`);
+   105→    }
+   106→  }
+   107→  async function handleViewHl7() {
+   108→    setHl7Open(true);
+   109→    setHl7Payload("Loading…");
+   110→    try {
+   111→      const payload = await fetchHl7(job!.jobNumber);
+   112→      setHl7Payload(payload);
+   113→    } catch (e) {
+   114→      setHl7Payload(`Error: ${(e as Error).message}`);
+   115→    }
+   116→  }
+   117→
+   118→  return (
+   119→    <>
+   120→      <Sheet open={!!job} onOpenChange={(o) => { if (!o) onClose(); }}>
+   121→        <SheetContent side="right" className="w-full flex flex-col gap-0 p-0 sm:max-w-2xl lg:max-w-3xl" style={{}}>
+   122→          {/* Header */}
+   123→          <div className="border-b border-border bg-card p-4">
+   124→            <div className="flex items-start justify-between gap-3">
+   125→              <div>
+   126→                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{job.jobNumber}</p>
+   127→                <h2 className="text-lg font-bold text-foreground">{job.documentType}</h2>
+   128→                <p className="text-sm text-muted-foreground">
+   129→                  {job.patientRef ?? "Unknown"} · {job.provider?.name ?? "—"}
+   130→                </p>
+   131→              </div>
+   132→              <div className="flex flex-col items-end gap-1.5">
+   133→                <Badge
+   134→                  variant="outline"
+   135→                  className="border-l-4 font-semibold"
+   136→                  style={{ borderLeftColor: statusMeta.color }}
+   137→                >
+   138→                  {statusMeta.label}
+   139→                </Badge>
+   140→                <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold", priorityStyle.badge)}>
+   141→                  <span className={cn("h-1.5 w-1.5 rounded-full", priorityStyle.dot)} /> {job.priority}
+   142→                </span>
+   143→              </div>
+   144→            </div>
+   145→            {/* SLA strip */}
+   146→            <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/50 p-2 text-xs">
+   147→              <Clock className={cn("h-3.5 w-3.5", slaToneClass)} />
+   148→              <span className={cn("font-semibold", slaToneClass)}>{sla.text}</span>
+   149→              {job.slaDeadline && (
+   150→                <span className="text-muted-foreground">
+   151→                  · due {formatDateTime(job.slaDeadline)}
+   152→                </span>
+   153→              )}
+   154→              {job.aiConfidence != null && (
+   155→                <Badge variant="outline" className="ml-auto gap-1 text-[10px]">
+   156→                  <Bot className="h-3 w-3 text-secondary" /> {pct(job.aiConfidence)}
+   157→                </Badge>
+   158→              )}
+   159→              {job.qualityScore != null && (
+   160→                <Badge variant="outline" className="text-[10px]">QA {job.qualityScore}</Badge>
+   161→              )}
+   162→            </div>
+   163→          </div>
+   164→
+   165→          {/* Tabs */}
+   166→          <Tabs value={tab} onValueChange={setTab} className="flex flex-1 flex-col overflow-hidden">
+   167→            <div className="border-b border-border bg-card px-3">
+   168→              <TabsList className="h-auto bg-transparent p-0">
+   169→                {TABS.map(t => (
+   170→                  <TabsTrigger key={t.id} value={t.id} className="gap-1.5 text-[12px]">
+   171→                    <t.icon className="h-3.5 w-3.5" /> {t.label}
+   172→                  </TabsTrigger>
+   173→                ))}
+   174→              </TabsList>
+   175→            </div>
+   176→
+   177→            <ScrollArea className="flex-1 mf-scroll overflow-y-auto">
+   178→              {/* ── Overview ─────────────────────────── */}
+   179→              <TabsContent value="overview" className="m-0 p-4">
+   180→                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+   181→                  <MetaTile label="Provider" value={job.provider?.name ?? "—"} />
+   182→                  <MetaTile label="Facility" value={job.facility?.name ?? "—"} />
+   183→                  <MetaTile label="Department" value={job.department?.name ?? "—"} />
+   184→                  <MetaTile label="Specialty" value={job.specialty?.name ?? "—"} />
+   185→                  <MetaTile label="Document type" value={job.documentType} />
+   186→                  <MetaTile label="Encounter" value={job.encounterRef ?? "—"} />
+   187→                  <MetaTile label="Audio file" value={job.audioFileName ?? "—"} />
+   188→                  <MetaTile label="Audio duration" value={formatDuration(job.audioDurationSec)} />
+   189→                  <MetaTile label="Delivery dest" value={job.deliveryDest ?? "—"} />
+   190→                </div>
+   191→
+   192→                {job.clientInstructions && (
+   193→                  <Card className="mt-3">
+   194→                    <CardContent className="p-3 text-sm">
+   195→                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client instructions</p>
+   196→                      <p className="mt-1 text-foreground">{job.clientInstructions}</p>
+   197→                    </CardContent>
+   198→                  </Card>
+   199→                )}
+   200→
+   201→                {/* Audio player mock */}
+   202→                <Card className="mt-3">
+   203→                  <CardContent className="p-3">
+   204→                    <div className="flex items-center gap-3">
+   205→                      <Button size="icon" variant="outline" className="h-9 w-9 rounded-full" aria-label="Play audio">
+   206→                        <Play className="h-4 w-4" />
+   207→                      </Button>
+   208→                      <div className="flex h-8 flex-1 items-end gap-0.5">
+   209→                        {Array.from({ length: 48 }).map((_, i) => (
+   210→                          <span
+   211→                            key={i}
+   212→                            className={cn("flex-1 rounded-sm bg-secondary/70", i < 14 && "bg-secondary")}
+   213→                            style={{ height: `${15 + Math.abs(Math.sin(i * 0.6)) * 80}%` }}
+   214→                          />
+   215→                        ))}
+   216→                      </div>
+   217→                      <span className="text-[11px] font-mono text-muted-foreground">
+   218→                        0:42 / {formatDuration(job.audioDurationSec)}
+   219→                      </span>
+   220→                    </div>
+   221→                  </CardContent>
+   222→                </Card>
+   223→
+   224→                {/* AI confidence ring */}
+   225→                <Card className="mt-3">
+   226→                  <CardContent className="flex items-center gap-4 p-3">
+   227→                    <ConfidenceRing value={job.aiConfidence ?? 0} />
+   228→                    <div>
+   229→                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">AI confidence</p>
+   230→                      <p className="text-sm font-bold text-foreground">
+   231→                        {pct(job.aiConfidence ?? 0)}
+   232→                      </p>
+   233→                      <p className="text-[11px] text-muted-foreground">
+   234→                        whisper-large-v3 · v2.4.1
+   235→                      </p>
+   236→                    </div>
+   237→                  </CardContent>
+   238→                </Card>
+   239→
+   240→                {/* Action buttons */}
+   241→                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+   242→                  <Button onClick={() => handleAction("advance", "Advance workflow")} className="bg-primary text-primary-foreground">
+   243→                    <Pencil className="mr-1.5 h-3.5 w-3.5" /> Advance workflow
+   244→                  </Button>
+   245→                  <Button
+   246→                    variant="outline"
+   247→                    onClick={() => handleRunAgent("transcription", "Transcription Agent")}
+   248→                    disabled={running === "transcription"}
+   249→                  >
+   250→                    {running === "transcription" ? <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
+   251→                    Run transcription
+   252→                  </Button>
+   253→                  <Button variant="outline" onClick={() => handleAction("clarify", "Clarification requested")}>
+   254→                    <MessageCircleQuestion className="mr-1.5 h-3.5 w-3.5" /> Request clarification
+   255→                  </Button>
+   256→                  <Button variant="outline" onClick={() => handleAction("escalate", "Escalated")}>
+   257→                    <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Escalate
+   258→                  </Button>
+   259→                  <Button variant="outline" onClick={() => handleAction("rework", "QA rework")}>
+   260→                    <XCircle className="mr-1.5 h-3.5 w-3.5" /> QA rework
+   261→                  </Button>
+   262→                  <Button
+   263→                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+   264→                    onClick={() => handleAction("approve", "Approved")}
+   265→                    disabled={job.status === "Delivered"}
+   266→                  >
+   267→                    <ThumbsUp className="mr-1.5 h-3.5 w-3.5" /> Approve & deliver
+   268→                  </Button>
+   269→                </div>
+   270→              </TabsContent>
+   271→
+   272→              {/* ── Transcript ──────────────────────────── */}
+   273→              <TabsContent value="transcript" className="m-0 p-4">
+   274→                <div className="mb-3 flex items-center gap-2">
+   275→                  <Badge variant="outline" className="gap-1 text-[10px]">
+   276→                    <Bot className="h-3 w-3 text-secondary" /> {pct(job.aiConfidence ?? 0)} AI confidence
+   277→                  </Badge>
+   278→                  <Badge variant="outline" className="text-[10px]">whisper-large-v3</Badge>
+   279→                </div>
+   280→                <pre className="max-h-[60vh] mf-scroll overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 font-mono text-[12px] leading-relaxed text-foreground">
+   281→{job.transcriptText ?? "No transcript yet — run the Transcription Agent."}
+   282→                </pre>
+   283→              </TabsContent>
+   284→
+   285→              {/* ── Structured doc ───────────────────────── */}
+   286→              <TabsContent value="structured" className="m-0 p-4">
+   287→                <StructuredDoc job={job} />
+   288→              </TabsContent>
+   289→
+   290→              {/* ── QA findings ───────────────────────────── */}
+   291→              <TabsContent value="qa" className="m-0 p-4">
+   292→                <QaFindings job={job} />
+   293→              </TabsContent>
+   294→
+   295→              {/* ── Timeline ─────────────────────────────── */}
+   296→              <TabsContent value="timeline" className="m-0 p-4">
+   297→                <Timeline job={job} />
+   298→              </TabsContent>
+   299→
+   300→              {/* ── Delivery ─────────────────────────────── */}
+   301→              <TabsContent value="delivery" className="m-0 p-4">
+   302→                <div className="space-y-3">
+   303→                  {job.status === "Delivered" || job.status === "Approved" ? (
+   304→                    <>
+   305→                      <Card>
+   306→                        <CardContent className="p-3 text-sm">
+   307→                          <div className="flex items-center gap-2">
+   308→                            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+   309→                            <div>
+   310→                              <p className="font-semibold text-foreground">Delivered via {job.deliveryDest ?? "FHIR R4"}</p>
+   311→                              <p className="text-[11px] text-muted-foreground">1 delivery attempt · succeeded · {formatRelative(job.updatedAt)}</p>
+   312→                            </div>
+   313→                          </div>
+   314→                        </CardContent>
+   315→                      </Card>
+   316→                      <div className="flex flex-wrap gap-2">
+   317→                        <Button variant="outline" onClick={handleViewFhir}>
+   318→                          <FileJson className="mr-1.5 h-3.5 w-3.5" /> View FHIR payload
+   319→                        </Button>
+   320→                        <Button variant="outline" onClick={handleViewHl7}>
+   321→                          <FileText className="mr-1.5 h-3.5 w-3.5" /> View HL7 message
+   322→                        </Button>
+   323→                      </div>
+   324→                    </>
+   325→                  ) : (
+   326→                    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-12 text-center">
+   327→                      <Send className="h-8 w-8 text-muted-foreground" />
+   328→                      <p className="text-sm font-medium">Not yet delivered</p>
+   329→                      <p className="text-[11px] text-muted-foreground">Approve & deliver to generate FHIR / HL7 payloads.</p>
+   330→                      <Button className="mt-2 bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => handleAction("approve", "Approved")}>
+   331→                        <ThumbsUp className="mr-1.5 h-3.5 w-3.5" /> Approve & deliver
+   332→                      </Button>
+   333→                    </div>
+   334→                  )}
+   335→                </div>
+   336→              </TabsContent>
+   337→            </ScrollArea>
+   338→          </Tabs>
+   339→        </SheetContent>
+   340→      </Sheet>
+   341→
+   342→      {/* FHIR dialog */}
+   343→      <Dialog open={fhirOpen} onOpenChange={setFhirOpen}>
+   344→        <DialogContent className="max-w-3xl">
+   345→          <DialogHeader>
+   346→            <DialogTitle className="flex items-center gap-2">
+   347→              <FileJson className="h-4 w-4 text-secondary" /> FHIR R4 Bundle — {job.jobNumber}
+   348→            </DialogTitle>
+   349→          </DialogHeader>
+   350→          <pre className="max-h-[60vh] mf-scroll overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
+   351→{fhirPayload}
+   352→          </pre>
+   353→        </DialogContent>
+   354→      </Dialog>
+   355→
+   356→      {/* HL7 dialog */}
+   357→      <Dialog open={hl7Open} onOpenChange={setHl7Open}>
+   358→        <DialogContent className="max-w-3xl">
+   359→          <DialogHeader>
+   360→            <DialogTitle className="flex items-center gap-2">
+   361→              <FileText className="h-4 w-4 text-secondary" /> HL7 v2 MDM Message — {job.jobNumber}
+   362→            </DialogTitle>
+   363→          </DialogHeader>
+   364→          <pre className="max-h-[60vh] mf-scroll overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
+   365→{hl7Payload}
+   366→          </pre>
+   367→        </DialogContent>
+   368→      </Dialog>
+   369→    </>
+   370→  );
+   371→
+   372→  async function handleAction(action: string, label: string) {
+   373→    try {
+   374→      const res = await fetch("/api/medflow/job-status", {
+   375→        method: "POST",
+   376→        headers: { "Content-Type": "application/json" },
+   377→        body: JSON.stringify({ jobId: job!.id, action, actorName: "Dana Whitfield" }),
+   378→      });
+   379→      if (!res.ok) throw new Error(`${res.status}`);
+   380→      toast.success(`${job!.jobNumber} → ${label}`);
+   381→      onAdvanced();
+   382→      onClose();
+   383→    } catch (e) {
+   384→      toast.error(`Failed: ${(e as Error).message}`);
+   385→    }
+   386→  }
+   387→}
+   388→
+   389→function MetaTile({ label, value }: { label: string; value: string }) {
+   390→  return (
+   391→    <div className="rounded-lg border border-border bg-card p-2.5">
+   392→      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+   393→      <p className="mt-0.5 truncate text-[12px] font-semibold text-foreground">{value}</p>
+   394→    </div>
+   395→  );
+   396→}
+   397→
+   398→function ConfidenceRing({ value }: { value: number }) {
+   399→  const pctVal = Math.max(0, Math.min(1, value));
+   400→  const r = 22;
+   401→  const c = 2 * Math.PI * r;
+   402→  const off = c * (1 - pctVal);
+   403→  return (
+   404→    <svg width="64" height="64" viewBox="0 0 64 64">
+   405→      <circle cx="32" cy="32" r={r} fill="none" stroke="#e2eee9" strokeWidth="6" />
+   406→      <circle
+   407→        cx="32" cy="32" r={r} fill="none" stroke="#1ABC9C" strokeWidth="6"
+   408→        strokeDasharray={c} strokeDashoffset={off}
+   409→        strokeLinecap="round" transform="rotate(-90 32 32)"
+   410→      />
+   411→      <text x="32" y="36" textAnchor="middle" className="fill-foreground text-[11px] font-bold">
+   412→        {Math.round(pctVal * 100)}%
+   413→      </text>
+   414→    </svg>
+   415→  );
+   416→}
+   417→
+   418→function StructuredDoc({ job }: { job: JobWithRelations }) {
+   419→  let parsed: Record<string, string> | null = null;
+   420→  try {
+   421→    if (job.structuredDocJson) parsed = JSON.parse(job.structuredDocJson);
+   422→  } catch { /* ignore */ }
+   423→  const entities = parsed?.["entities"];
+   424→  return (
+   425→    <div className="space-y-3">
+   426→      <Card>
+   427→        <CardContent className="p-4">
+   428→          {parsed ? (
+   429→            <div className="prose prose-sm max-w-none">
+   430→              {Object.entries(parsed).filter(([k]) => k !== "entities").map(([k, v]) => (
+   431→                <div key={k} className="mb-3">
+   432→                  <p className="text-[11px] font-bold uppercase tracking-wider text-secondary">{k}</p>
+   433→                  <p className="mt-0.5 text-sm leading-relaxed text-foreground">{v}</p>
+   434→                </div>
+   435→              ))}
+   436→            </div>
+   437→          ) : (
+   438→            <p className="text-sm text-muted-foreground">No structured document yet — run the Structuring Agent.</p>
+   439→          )}
+   440→        </CardContent>
+   441→      </Card>
+   442→      {entities && (
+   443→        <Card>
+   444→          <CardContent className="p-3">
+   445→            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Extracted entities</p>
+   446→            <div className="mt-2 flex flex-wrap gap-1.5">
+   447→              {(Array.isArray(entities) ? entities : []).map((e: unknown, i: number) => (
+   448→                <Badge key={i} variant="outline" className="text-[10px]">
+   449→                  {typeof e === "string" ? e : JSON.stringify(e)}
+   450→                </Badge>
+   451→              ))}
+   452→              {!Array.isArray(entities) && typeof entities === "object" && entities && (
+   453→                Object.entries(entities as Record<string, unknown>).map(([k, v]) => (
+   454→                  <Badge key={k} variant="outline" className="text-[10px]">
+   455→                    <span className="font-semibold text-secondary">{k}:</span> {String(v)}
+   456→                  </Badge>
+   457→                ))
+   458→              )}
+   459→            </div>
+   460→          </CardContent>
+   461→        </Card>
+   462→      )}
+   463→    </div>
+   464→  );
+   465→}
+   466→
+   467→function QaFindings({ job }: { job: JobWithRelations }) {
+   468→  const review = job.qualityReviews?.[0];
+   469→  let findings: Array<{ type?: string; severity?: string; detail?: string; suggestion?: string }> = [];
+   470→  try {
+   471→    findings = review ? JSON.parse(review.findingsJson) : [];
+   472→  } catch { /* ignore */ }
+   473→  const sevStyle = (sev: string) => RISK_SEVERITY_STYLES[sev as keyof typeof RISK_SEVERITY_STYLES] ?? RISK_SEVERITY_STYLES.informational;
+   474→  return (
+   475→    <div className="space-y-3">
+   476→      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   477→        <MetaTile label="Quality score" value={review?.qualityScore?.toString() ?? "—"} />
+   478→        <MetaTile label="Risk score" value={review?.riskScore?.toString() ?? "—"} />
+   479→        <MetaTile label="Risk severity" value={review?.riskSeverity ?? "—"} />
+   480→        <MetaTile label="Recommendation" value={review?.recommendedAction ?? "—"} />
+   481→      </div>
+   482→      {findings.length === 0 ? (
+   483→        <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+   484→          <ShieldCheck className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
+   485→          No QA findings — run the QA Agent to inspect.
+   486→        </div>
+   487→      ) : (
+   488→        <ul className="space-y-2">
+   489→          {findings.map((f, i) => {
+   490→            const s = sevStyle(f.severity ?? "informational");
+   491→            return (
+   492→              <motion.li
+   493→                key={i}
+   494→                initial={{ opacity: 0, y: 6 }}
+   495→                animate={{ opacity: 1, y: 0 }}
+   496→                transition={{ duration: 0.25, delay: i * 0.04 }}
+   497→                className="rounded-lg border border-border bg-card p-3"
+   498→              >
+   499→                <div className="flex items-center justify-between gap-2">
+   500→                  <div className="flex items-center gap-2">
+   501→                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+   502→                    <span className="text-[12px] font-semibold text-foreground">{f.type ?? "Finding"}</span>
+   503→                  </div>
+   504→                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${s.badge}`}>{s.label}</span>
+   505→                </div>
+   506→                {f.detail && <p className="mt-1 text-[12px] text-muted-foreground">{f.detail}</p>}
+   507→                {f.suggestion && (
+   508→                  <p className="mt-1 text-[11px] italic text-foreground/70">
+   509→                    <span className="font-semibold">Suggestion:</span> {f.suggestion}
+   510→                  </p>
+   511→                )}
+   512→              </motion.li>
+   513→            );
+   514→          })}
+   515→        </ul>
+   516→      )}
+   517→    </div>
+   518→  );
+   519→}
+   520→
+   521→function Timeline({ job }: { job: JobWithRelations }) {
+   522→  const events = job.events ?? [];
+   523→  if (events.length === 0) {
+   524→    return (
+   525→      <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+   526→        <Activity className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+   527→        No timeline events yet.
+   528→      </div>
+   529→    );
+   530→  }
+   531→  return (
+   532→    <ol className="relative space-y-3 pl-5">
+   533→      <span className="absolute left-1.5 top-2 h-[calc(100%-1rem)] w-px bg-border" />
+   534→      {events.map((e, i) => {
+   535→        const initials = (e.actorName ?? "S").split(" ").map(s => s[0]).slice(0, 2).join("");
+   536→        return (
+   537→          <motion.li
+   538→            key={e.id}
+   539→            initial={{ opacity: 0, x: -6 }}
+   540→            animate={{ opacity: 1, x: 0 }}
+   541→            transition={{ duration: 0.25, delay: i * 0.04 }}
+   542→            className="relative"
+   543→          >
+   544→            <span className="absolute -left-[14px] top-1.5 h-3 w-3 rounded-full border-2 border-card bg-secondary" />
+   545→            <div className="flex items-start gap-2">
+   546→              <Avatar className="h-6 w-6 border border-border">
+   547→                <AvatarFallback className="bg-primary/10 text-[9px] font-bold text-primary">{initials}</AvatarFallback>
+   548→              </Avatar>
+   549→              <div className="flex-1 min-w-0">
+   550→                <p className="text-[12px] text-foreground">
+   551→                  <span className="font-semibold">{e.actorName ?? "System"}</span>
+   552→                  <span className="text-muted-foreground"> · {e.event}</span>
+   553→                </p>
+   554→                {e.detail && <p className="text-[11px] text-muted-foreground">{e.detail}</p>}
+   555→                <p className="text-[10px] text-muted-foreground/80">
+   556→                  {formatRelative(e.createdAt)} · {e.fromStatus ?? "∅"} → {e.toStatus ?? "∅"}
+   557→                </p>
+   558→              </div>
+   559→            </div>
+   560→          </motion.li>
+   561→        );
+   562→      })}
+   563→    </ol>
+   564→  );
+   565→}
+   566→

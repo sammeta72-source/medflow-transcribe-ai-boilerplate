@@ -24,6 +24,10 @@ import { Team } from "@/components/medflow/sections/Team";
 import { Billing } from "@/components/medflow/sections/Billing";
 import { AuditSecurity } from "@/components/medflow/sections/AuditSecurity";
 import { Settings } from "@/components/medflow/sections/Settings";
+import { Copilot } from "@/components/medflow/sections/Copilot";
+import { ContinuousCompliance } from "@/components/medflow/sections/ContinuousCompliance";
+import { ClientPortal } from "@/components/medflow/sections/ClientPortal";
+import { MobileApp } from "@/components/medflow/sections/MobileApp";
 import { DEMO_USERS } from "@/lib/medflow/constants";
 import type { JobWithRelations } from "@/lib/medflow/types";
 import {
@@ -105,6 +109,10 @@ export default function Home() {
       {active === "analytics" && <Analytics />}
       {active === "agents" && <AIAgents />}
       {active === "integrations" && <Integrations />}
+      {active === "copilot" && <Copilot />}
+      {active === "compliance" && <ContinuousCompliance />}
+      {active === "client-portal" && <ClientPortal />}
+      {active === "mobile-app" && <MobileApp />}
       {active === "team" && <Team />}
       {active === "billing" && <Billing />}
       {active === "audit" && <AuditSecurity />}

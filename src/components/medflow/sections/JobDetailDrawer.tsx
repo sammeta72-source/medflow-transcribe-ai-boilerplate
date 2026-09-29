@@ -4,19 +4,28 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Activity, AlertTriangle, Bot, CheckCircle2, ClipboardCopy, Clock, FileJson,
-  FileText, ListTree, MessageCircleQuestion, Mic, Pencil, Play, RefreshCw, Send,
-  ShieldCheck, Stethoscope, ThumbsUp, XCircle,
+  Activity, AlertTriangle, Bot, CheckCircle2, ChevronDown, ClipboardCopy,
+  Clock, FileJson, FileSearch, FileText, ListTree, Loader2, MessageCircleQuestion,
+  Mic, Pencil, Play, RefreshCw, Send, ShieldAlert, ShieldCheck, Stethoscope,
+  ThumbsUp, XCircle,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { runAgent, fetchFhir, fetchHl7 } from "@/lib/medflow/api";
+import {
+  detectHallucinations, extractEntities, fetchFhir, fetchHl7, runAgent,
+} from "@/lib/medflow/api";
+import type {
+  ExtractedEntities, HallucinationResult,
+} from "@/lib/medflow/api";
 import {
   PRIORITY_STYLES, RISK_SEVERITY_STYLES, STATUS_META,
 } from "@/lib/medflow/constants";
@@ -49,6 +58,14 @@ export function JobDetailDrawer({ job, onClose, onAdvanced }: Props) {
   const [hl7Open, setHl7Open] = useState(false);
   const [fhirPayload, setFhirPayload] = useState<string>("");
   const [hl7Payload, setHl7Payload] = useState<string>("");
+
+  // Task 11-e — Extract Entities + Hallucination Detection state
+  const [entities, setEntities] = useState<ExtractedEntities | null>(null);
+  const [entitiesLoading, setEntitiesLoading] = useState(false);
+  const [entitiesOpen, setEntitiesOpen] = useState(false);
+  const [hallucination, setHallucination] = useState<HallucinationResult | null>(null);
+  const [hallLoading, setHallLoading] = useState(false);
+  const [hallOpen, setHallOpen] = useState(false);
 
   useEffect(() => { if (job) setTab("overview"); }, [job]);
 
@@ -112,6 +129,52 @@ export function JobDetailDrawer({ job, onClose, onAdvanced }: Props) {
       setHl7Payload(payload);
     } catch (e) {
       setHl7Payload(`Error: ${(e as Error).message}`);
+    }
+  }
+
+  // Task 11-e — Extract Entities (A3): scans transcript text for SNOMED-CT,
+  // ICD-10, CPT, RxNorm + laterality/negation/uncertainty markers.
+  async function handleExtractEntities() {
+    setEntitiesLoading(true);
+    setEntitiesOpen(true);
+    setEntities(null);
+    try {
+      const res = await extractEntities(job!.transcriptText ?? "", job!.documentType);
+      setEntities(res);
+      toast.success(
+        `Extracted ${res.snomed_ct.length} SNOMED + ${res.icd10.length} ICD-10 + ${res.rxnorm.length} RxNorm codes`,
+        { description: `medflow-cnl-v1.0.0 · ${res.diagnoses.length} diagnoses, ${res.medications.length} meds` },
+      );
+    } catch (e) {
+      toast.error(`Entity extraction failed: ${(e as Error).message}`);
+      setEntitiesOpen(false);
+    } finally {
+      setEntitiesLoading(false);
+    }
+  }
+
+  // Task 11-e — Hallucination Detection (A4): runs 6 detectors
+  // (medication/laterality/negation/abbreviation/numeric/claim) on the transcript.
+  async function handleDetectHallucinations() {
+    setHallLoading(true);
+    setHallOpen(true);
+    setHallucination(null);
+    try {
+      const res = await detectHallucinations(
+        job!.transcriptText ?? "",
+        job!.transcriptText ?? "",
+        job!.audioDurationSec ?? 0,
+      );
+      setHallucination(res);
+      toast.success(
+        `Detected ${res.flags.length} potential issues — risk level: ${res.risk_level}`,
+        { description: `medflow-hallucination-guard-v1.0.0 · score ${(res.overall_risk_score * 100).toFixed(0)}%` },
+      );
+    } catch (e) {
+      toast.error(`Hallucination detection failed: ${(e as Error).message}`);
+      setHallOpen(false);
+    } finally {
+      setHallLoading(false);
     }
   }
 
@@ -266,7 +329,43 @@ export function JobDetailDrawer({ job, onClose, onAdvanced }: Props) {
                   >
                     <ThumbsUp className="mr-1.5 h-3.5 w-3.5" /> Approve & deliver
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleExtractEntities}
+                    disabled={entitiesLoading}
+                  >
+                    {entitiesLoading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <FileSearch className="mr-1.5 h-3.5 w-3.5" />}
+                    Extract entities
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDetectHallucinations}
+                    disabled={hallLoading}
+                  >
+                    {hallLoading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />}
+                    Detect hallucinations
+                  </Button>
                 </div>
+
+                {/* Task 11-e — Extracted Entities collapsible panel */}
+                {(entitiesOpen || entities) && (
+                  <EntitiesPanel
+                    entities={entities}
+                    loading={entitiesLoading}
+                    open={entitiesOpen}
+                    onOpenChange={setEntitiesOpen}
+                  />
+                )}
+
+                {/* Task 11-e — Hallucination Detection collapsible panel */}
+                {(hallOpen || hallucination) && (
+                  <HallucinationPanel
+                    result={hallucination}
+                    loading={hallLoading}
+                    open={hallOpen}
+                    onOpenChange={setHallOpen}
+                  />
+                )}
               </TabsContent>
 
               {/* ── Transcript ──────────────────────────── */}
@@ -561,5 +660,283 @@ function Timeline({ job }: { job: JobWithRelations }) {
         );
       })}
     </ol>
+  );
+}
+
+// ── Task 11-e — Extracted Entities panel ───────────────────────────────────
+// Renders the SNOMED/ICD-10/CPT/RxNorm code chips + medications/diagnoses/
+// allergies lists + laterality/negation/uncertainty chips + disclaimer.
+// Collapsible — Radix Collapsible keeps the panel expand/collapse animation
+// accessible + keyboard-navigable.
+function EntitiesPanel({
+  entities, loading, open, onOpenChange,
+}: {
+  entities: ExtractedEntities | null;
+  loading: boolean;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  return (
+    <Card className="mt-3 border-secondary/40">
+      <Collapsible open={open} onOpenChange={onOpenChange}>
+        <CollapsibleTrigger asChild>
+          <button className="flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-muted/30">
+            <span className="flex items-center gap-2">
+              <FileSearch className="h-4 w-4 text-secondary" />
+              <span className="text-[13px] font-bold text-foreground">Extracted Entities</span>
+              {entities && (
+                <Badge variant="outline" className="text-[10px] gap-1 border-secondary/40 text-secondary">
+                  {entities.snomed_ct.length + entities.icd10.length + entities.cpt.length + entities.rxnorm.length} codes
+                </Badge>
+              )}
+            </span>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-3 border-t border-border p-3 pt-3">
+            {loading ? (
+              <div className="flex items-center gap-2 py-6 text-center text-[12px] text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-secondary" /> Scanning transcript with medflow-cnl-v1.0.0…
+              </div>
+            ) : entities ? (
+              <>
+                <CodeChipGroup label="SNOMED CT" codes={entities.snomed_ct.map(c => ({ code: c.code, display: c.display, confidence: c.confidence }))} tone="emerald" />
+                <CodeChipGroup label="ICD-10" codes={entities.icd10.map(c => ({ code: c.code, display: c.display, confidence: c.confidence }))} tone="teal" />
+                <CodeChipGroup label="CPT" codes={entities.cpt.map(c => ({ code: c.code, display: c.display, confidence: c.confidence }))} tone="amber" />
+                <CodeChipGroup label="RxNorm" codes={entities.rxnorm.map(c => ({ code: c.code, display: c.display, confidence: c.confidence }))} tone="cyan" />
+
+                <SimpleList label="Medications" items={entities.medications} />
+                <SimpleList label="Diagnoses" items={entities.diagnoses} />
+                <SimpleList label="Allergies" items={entities.allergies} />
+
+                {entities.laterality_flags.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Laterality flags</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {entities.laterality_flags.map((l, i) => (
+                        <Badge key={i} variant="outline" className="text-[10px] capitalize border-amber-300 bg-amber-50 text-amber-800">
+                          {l.term} · {l.side} ({Math.round(l.confidence * 100)}%)
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {entities.negation_flags.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Negation flags</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {entities.negation_flags.map((n, i) => (
+                        <Badge key={i} variant="outline" className={cn("text-[10px]", n.negated ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-300 bg-slate-50 text-slate-700")}>
+                          {n.term} {n.negated ? "· negated" : "· affirmed"} ({Math.round(n.confidence * 100)}%)
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {entities.uncertain_markers.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Uncertain markers</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {entities.uncertain_markers.map((u, i) => (
+                        <Badge key={i} variant="outline" className="text-[10px] border-orange-300 bg-orange-50 text-orange-800">{u}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p className="mt-2 border-t border-border pt-2 text-[10px] italic text-muted-foreground">
+                  {entities.disclaimer}
+                </p>
+                <p className="text-[9px] text-muted-foreground">
+                  Model: {entities.model} · extracted at {formatRelative(entities.extracted_at)}
+                </p>
+              </>
+            ) : null}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+function CodeChipGroup({
+  label, codes, tone,
+}: {
+  label: string;
+  codes: Array<{ code: string; display: string; confidence: number }>;
+  tone: "emerald" | "teal" | "amber" | "cyan";
+}) {
+  if (codes.length === 0) return null;
+  const toneClass: Record<string, string> = {
+    emerald: "border-emerald-300 bg-emerald-50 text-emerald-800",
+    teal: "border-teal-300 bg-teal-50 text-teal-800",
+    amber: "border-amber-300 bg-amber-50 text-amber-800",
+    cyan: "border-cyan-300 bg-cyan-50 text-cyan-800",
+  };
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label} ({codes.length})</p>
+      <div className="flex flex-wrap gap-1.5">
+        {codes.map((c, i) => (
+          <Badge key={i} variant="outline" className={cn("text-[10px] gap-1", toneClass[tone])}>
+            <span className="font-mono font-bold">{c.code}</span>
+            <span className="font-normal">· {c.display}</span>
+            <span className="ml-1 rounded bg-white/60 px-1 font-mono text-[9px]">{Math.round(c.confidence * 100)}%</span>
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SimpleList({ label, items }: { label: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label} ({items.length})</p>
+      <ul className="space-y-0.5">
+        {items.map((m, i) => (
+          <li key={i} className="flex items-start gap-1.5 text-[12px] text-foreground">
+            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-secondary" /> {m}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── Task 11-e — Hallucination Detection panel ──────────────────────────────
+// Renders the overall risk_score + risk_level badge + the flags list
+// (type, severity, segment, explanation, recommendation). Collapsible.
+const HALL_SEVERITY_DOT: Record<string, string> = {
+  low: "bg-emerald-500",
+  medium: "bg-amber-500",
+  high: "bg-orange-500",
+  critical: "bg-red-500",
+};
+const HALL_SEVERITY_BADGE: Record<string, string> = {
+  low: "bg-emerald-100 text-emerald-700 border-emerald-300",
+  medium: "bg-amber-100 text-amber-700 border-amber-300",
+  high: "bg-orange-100 text-orange-800 border-orange-300",
+  critical: "bg-red-100 text-red-700 border-red-300",
+};
+
+function HallucinationPanel({
+  result, loading, open, onOpenChange,
+}: {
+  result: HallucinationResult | null;
+  loading: boolean;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  return (
+    <Card className="mt-3 border-orange-300/60">
+      <Collapsible open={open} onOpenChange={onOpenChange}>
+        <CollapsibleTrigger asChild>
+          <button className="flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-muted/30">
+            <span className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-orange-600" />
+              <span className="text-[13px] font-bold text-foreground">Hallucination Detection</span>
+              {result && (
+                <Badge variant="outline" className={cn("text-[10px]", HALL_SEVERITY_BADGE[result.risk_level])}>
+                  {result.flags.length} flags · {result.risk_level}
+                </Badge>
+              )}
+            </span>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-3 border-t border-border p-3 pt-3">
+            {loading ? (
+              <div className="flex items-center gap-2 py-6 text-center text-[12px] text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-orange-600" /> Running 6 detectors via medflow-hallucination-guard-v1.0.0…
+              </div>
+            ) : result ? (
+              <>
+                {/* Risk gauge */}
+                <div className="flex items-center gap-4">
+                  <RiskGauge pct={Math.round(result.overall_risk_score * 100)} level={result.risk_level} />
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Overall risk</p>
+                    <p className="text-lg font-extrabold text-foreground capitalize">{result.risk_level}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {result.flags.length} potential {result.flags.length === 1 ? "issue" : "issues"} · score {(result.overall_risk_score * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+
+                {result.flags.length === 0 ? (
+                  <div className="flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-[12px] text-emerald-700">
+                    <ShieldCheck className="h-4 w-4" /> No hallucination signals detected — transcript appears internally consistent.
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {result.flags.map((f, i) => (
+                      <motion.li
+                        key={i}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: i * 0.04 }}
+                        className="rounded-lg border border-border bg-card p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("h-2 w-2 rounded-full", HALL_SEVERITY_DOT[f.severity] ?? "bg-slate-400")} />
+                            <span className="text-[12px] font-semibold capitalize text-foreground">{f.type.replace(/_/g, " ")}</span>
+                          </div>
+                          <Badge variant="outline" className={cn("text-[10px] capitalize", HALL_SEVERITY_BADGE[f.severity])}>
+                            {f.severity}
+                          </Badge>
+                        </div>
+                        <pre className="mt-2 max-h-32 mf-scroll overflow-y-auto whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 font-mono text-[11px] leading-relaxed text-foreground">
+{f.segment}
+                        </pre>
+                        <p className="mt-1 text-[11px] text-muted-foreground">{f.explanation}</p>
+                        <div className="mt-2 flex items-start gap-1.5 rounded-md border border-secondary/30 bg-secondary/5 p-2 text-[11px] text-foreground/80">
+                          <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-secondary" />
+                          <span><span className="font-semibold">Recommendation:</span> {f.recommendation}</span>
+                        </div>
+                      </motion.li>
+                    ))}
+                  </ul>
+                )}
+
+                <p className="mt-2 border-t border-border pt-2 text-[10px] italic text-muted-foreground">
+                  {result.disclaimer}
+                </p>
+                <p className="text-[9px] text-muted-foreground">
+                  Model: {result.model} · checked at {formatRelative(result.checked_at)}
+                </p>
+              </>
+            ) : null}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+function RiskGauge({ pct, level }: { pct: number; level: string }) {
+  const color = level === "low" ? "#16a085"
+    : level === "medium" ? "#E67E22"
+    : level === "high" ? "#D35400"
+    : "#C0392B";
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - pct / 100);
+  return (
+    <svg width="56" height="56" viewBox="0 0 56 56">
+      <circle cx="28" cy="28" r={r} fill="none" stroke="#e2eee9" strokeWidth="6" />
+      <circle
+        cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="6"
+        strokeDasharray={c} strokeDashoffset={off}
+        strokeLinecap="round" transform="rotate(-90 28 28)"
+      />
+      <text x="28" y="31" textAnchor="middle" className="fill-foreground text-[11px] font-bold">{pct}%</text>
+    </svg>
   );
 }

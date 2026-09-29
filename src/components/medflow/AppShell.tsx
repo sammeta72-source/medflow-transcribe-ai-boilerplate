@@ -9,10 +9,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
-  Activity, AlertTriangle, BarChart3, Bell, Bot, CalendarClock, ClipboardList,
+  Activity, AlertTriangle, BadgeCheck, BarChart3, Bell, Bot, CalendarClock, ClipboardList,
   CreditCard, FileStack, FileText, FileOutput, HelpCircle, Inbox, KanbanSquare,
   LayoutDashboard, LogOut, MessageCircleQuestion, type LucideIcon, Pencil, Plug,
-  ScanLine, Search, Send, Settings, ShieldAlert, ShieldCheck, Stethoscope,
+  ScanLine, Search, Send, Settings, ShieldAlert, ShieldCheck, Smartphone, Sparkles, Stethoscope,
   Upload, Users, UserCircle2, X, Menu, Building2, ChevronDown, ChevronUp,
   Moon, Sun, Bot as BotIcon, Globe, Lock, UserCog,
 } from "lucide-react";
@@ -30,6 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   ShieldCheck, FileStack, BarChart3, Bot, Plug, Users, CreditCard, ShieldAlert,
   Settings, Activity, AlertTriangle, CalendarClock, ClipboardList, FileOutput,
   ScanLine, Send, Stethoscope, UserCircle2, Pencil, Lock, UserCog,
+  Sparkles, BadgeCheck, Globe, Smartphone,
 };
 
 interface Props {

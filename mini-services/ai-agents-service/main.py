@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -1451,6 +1452,971 @@ async def get_db_schema() -> dict[str, Any]:
         "entities": DB_SCHEMA_ENTITIES,
         "count": len(DB_SCHEMA_ENTITIES),
         "active_connector": ACTIVE_DB_CONNECTOR,
+    }
+
+
+# =====================================================================
+# === TASK 11-a ADDITIONS — AI Operations Copilot, Medical Entity    ===
+# === Extraction, Hallucination Guard, FHIR Subscriptions,          ===
+# === DirectTrust Secure Messaging.                                 ===
+# ===                                                               ===
+# === All endpoints below are SIMULATED / MOCK for demo purposes.   ===
+# === A real production deployment would call actual clinical NLP /  ===
+# === STT models, LLMs, and DirectTrust trust anchors. They are     ===
+# === purely ADDITIVE — no existing route is modified.              ===
+# ===                                                               ===
+# === NOTE ON ROUTE ORDER: The new GET /api/fhir/subscription       ===
+# === route is declared BEFORE the existing dynamic GET /api/fhir/  ===
+# === {job_id} route. Starlette matches routes in declaration       ===
+# === order; if we appended the new GET at the end, the existing    ===
+# === /api/fhir/{job_id} would capture "/api/fhir/subscription"     ===
+# === (job_id="subscription") and 404. Declaring it first lets the   ===
+# === exact-match path win, and the existing dynamic route still    ===
+# === works for every other job_id.                                 ===
+# =====================================================================
+
+# --- Module-level stores (in-memory, additive) ---
+COPILOT_CACHE: dict[str, dict[str, Any]] = {}         # date → last copilot summary
+FHIR_SUBSCRIPTIONS: dict[str, dict[str, Any]] = {}    # subscription id → subscription object
+DIRECT_LOG: list[dict[str, Any]] = []                 # log of sent Direct messages (cap 100)
+
+# --- Synthetic SLA risk metadata for seeded jobs (deterministic demo) ---
+# (SEED_JOBS doesn't carry live workflow status; this metadata is what an
+#  actual workflow DB would expose — used only by the Operations Copilot.)
+JOB_SLA_META: dict[str, dict[str, Any]] = {
+    "JOB-2024-001": {"status": "Transcribing", "sla_percent": 0.78, "sla_risk_label": "at-risk",  "priority": "STAT"},
+    "JOB-2024-002": {"status": "QA Review",    "sla_percent": 0.42, "sla_risk_label": "on-track", "priority": "normal"},
+    "JOB-2024-003": {"status": "Delivered",    "sla_percent": 1.00, "sla_risk_label": "on-track", "priority": "normal"},
+    "JOB-2024-004": {"status": "Escalated",    "sla_percent": 0.96, "sla_risk_label": "breach",   "priority": "urgent"},
+    "JOB-2024-005": {"status": "Queued",       "sla_percent": 0.10, "sla_risk_label": "on-track", "priority": "normal"},
+    "JOB-2024-006": {"status": "Transcribing", "sla_percent": 0.65, "sla_risk_label": "at-risk",  "priority": "STAT"},
+}
+
+# --- Clinical NLP knowledge base (built-in mock maps; NOT an LLM) ---
+# (Term lookups are case-insensitive — the helper lowercases the input.)
+SNOMED_CT_MAP: dict[str, tuple[str, str]] = {
+    "chest pain":               ("29857009",  "Chest pain (finding)"),
+    "hypertension":             ("38341003",  "Hypertension (disorder)"),
+    "diabetes mellitus":        ("73211009",  "Diabetes mellitus (disorder)"),
+    "diabetes":                 ("73211009",  "Diabetes mellitus (disorder)"),
+    "myocardial infarction":    ("22298006",  "Myocardial infarction (disorder)"),
+    "heart failure":            ("56265001",  "Heart failure (disorder)"),
+    "atrial fibrillation":      ("49436004",  "Atrial fibrillation (disorder)"),
+    "coronary artery disease":  ("53741008",  "Coronary artery disease (disorder)"),
+    "cad":                      ("53741008",  "Coronary artery disease (disorder)"),
+    "dyspnea":                  ("267038007", "Dyspnea (finding)"),
+    "shortness of breath":      ("267038007", "Dyspnea (finding)"),
+    "edema":                    ("76571002",  "Edema (finding)"),
+    "copd":                     ("13645005",  "Chronic obstructive lung disease (disorder)"),
+    "migraine":                 ("37799009",  "Migraine (disorder)"),
+}
+
+ICD10_MAP: dict[str, tuple[str, str]] = {
+    "hypertension":             ("I10",     "Essential (primary) hypertension"),
+    "diabetes mellitus":        ("E11.9",   "Type 2 diabetes mellitus without complications"),
+    "diabetes":                 ("E11.9",   "Type 2 diabetes mellitus without complications"),
+    "myocardial infarction":    ("I21.9",   "Acute myocardial infarction, unspecified"),
+    "heart failure":            ("I50.9",   "Heart failure, unspecified"),
+    "atrial fibrillation":      ("I48.91",  "Atrial fibrillation and atrial flutter, unspecified"),
+    "coronary artery disease":  ("I25.10",  "Atherosclerotic heart disease of native coronary artery without angina pectoris"),
+    "cad":                      ("I25.10",  "Atherosclerotic heart disease of native coronary artery without angina pectoris"),
+    "chest pain":               ("R07.9",   "Chest pain, unspecified"),
+    "dyspnea":                  ("R06.02",   "Shortness of breath"),
+    "shortness of breath":      ("R06.02",   "Shortness of breath"),
+    "edema":                    ("R60.9",   "Edema, unspecified"),
+    "copd":                     ("J44.9",   "COPD (chronic obstructive pulmonary disease), unspecified"),
+    "migraine":                 ("G43.909", "Migraine, unspecified, intractable, without status migrainosus"),
+}
+
+RXNORM_MAP: dict[str, tuple[str, str]] = {
+    "lisinopril":   ("29046",   "Lisinopril 10 MG Oral Tablet"),
+    "metoprolol":   ("866426",  "Metoprolol Tartrate 25 MG Oral Tablet"),
+    "atorvastatin": ("259255",  "Atorvastatin 20 MG Oral Tablet"),
+    "furosemide":   ("314431",  "Furosemide 20 MG Oral Tablet"),
+    "warfarin":     ("11240",   "Warfarin 5 MG Oral Tablet"),
+    "aspirin":      ("1191",    "Aspirin 81 MG Oral Tablet"),
+    "metformin":    ("86009",   "Metformin 500 MG Oral Tablet"),
+    "amlodipine":   ("89602",   "Amlodipine 5 MG Oral Tablet"),
+}
+
+CPT_MAP: dict[str, tuple[str, str]] = {
+    "echo":         ("93306", "Echocardiography, transthoracic, real-time with image documentation (93306)"),
+    "ecg":          ("93000", "Electrocardiogram, routine ECG with at least 12 leads (93000)"),
+    "ekg":          ("93000", "Electrocardiogram, routine ECG with at least 12 leads (93000)"),
+    "office visit": ("99213", "Office visit, established patient, low-to-moderate MDM (99213)"),
+    "follow-up":    ("99213", "Office visit, established patient (99213)"),
+    "follow up":    ("99213", "Office visit, established patient (99213)"),
+    "consultation": ("99243", "Office consultation, low MDM (99243)"),
+    "stress test":  ("93350", "Stress echocardiography, complete (93350)"),
+}
+
+# ISMP-style error-prone abbreviations the hallucination guard flags.
+UNSUPPORTED_ABBREVIATIONS: list[str] = ["q.d.", "QD", "Q.O.D.", "QOD", "cc", "U", "IU", "MS", "MSO4", "MgSO4", "ug", "μg"]
+
+# Body parts for laterality-conflict detection.
+LATERALITY_BODY_PARTS: list[str] = [
+    "knee", "shoulder", "hip", "ankle", "wrist", "elbow", "hand", "foot",
+    "arm", "leg", "ear", "eye", "breast", "kidney", "lung",
+]
+
+
+# --- Pydantic models for new endpoints ---
+
+
+class CopilotRequest(BaseModel):
+    """Body for POST /api/copilot/summarize."""
+
+    date: Optional[str] = Field(None, description="ISO date for the operations summary; defaults to today (UTC)")
+    manager_role: Optional[str] = Field(None, description='Manager role label; defaults to "Offshore Delivery Manager"')
+
+
+class EntityExtractionRequest(BaseModel):
+    """Body for POST /api/entities/extract."""
+
+    text: str = Field(..., description="Clinical narrative text to extract entities from")
+    document_type: Optional[str] = Field(None, description="Optional document type hint (e.g. soap, operative, discharge)")
+
+
+class HallucinationRequest(BaseModel):
+    """Body for POST /api/hallucination/detect."""
+
+    text: str = Field(..., description="Transcript text to scan for hallucination / fabrication patterns")
+    transcript: Optional[str] = Field(None, description="Optional raw transcript if `text` is the structured doc")
+    audio_duration_sec: Optional[float] = Field(None, description="Optional audio duration in seconds")
+
+
+class FhirSubscriptionCreateRequest(BaseModel):
+    """Body for POST /api/fhir/subscription."""
+
+    criteria: str = Field(..., description='FHIR Subscription.criteria (e.g. "DocumentReference?status=current")')
+    channel_type: str = Field("rest-hook", description="Channel: rest-hook | websocket | email")
+    endpoint: str = Field(..., description="Endpoint URL or address")
+    reason: str = Field(..., description="Human-readable reason for the subscription")
+
+
+class FhirSubscriptionFireRequest(BaseModel):
+    """Body for POST /api/fhir/subscription/{id}/fire."""
+
+    job_id: str = Field(..., description="Job id that triggered the fire")
+
+
+class DirectSendRequest(BaseModel):
+    """Body for POST /api/direct/send."""
+
+    job_id: str = Field(..., description="Source transcription job id")
+    recipient_address: str = Field(..., description='Direct address, e.g. "name@domain.direct"')
+    recipient_name: Optional[str] = Field(None, description="Display name of recipient")
+    document_summary: Optional[str] = Field(None, description="Short description of the attached document")
+    attachment_format: Optional[str] = Field("pdf", description="Attachment format: pdf | ccda | fhir")
+
+
+# --- Helper functions for new endpoints ---
+
+
+def _seed_fhir_subscriptions() -> None:
+    """Seed the FHIR_SUBSCRIPTIONS store with 3 demo subscriptions on startup."""
+    if FHIR_SUBSCRIPTIONS:
+        return
+    now = _now_iso()
+    FHIR_SUBSCRIPTIONS["sub-rest-001"] = {
+        "id": "sub-rest-001",
+        "status": "active",
+        "criteria": "DocumentReference?status=current&category=clinical-note",
+        "channel_type": "rest-hook",
+        "endpoint": "https://ehr.cardinalhealth.org/fhir/Subscription/notify",
+        "reason": "Auto-deliver finalized SOAP notes to Cardinal Health EHR",
+        "expiry": "2025-12-31T23:59:59Z",
+        "created_at": now,
+        "last_fired": None,
+        "fired_count": 0,
+    }
+    FHIR_SUBSCRIPTIONS["sub-ws-001"] = {
+        "id": "sub-ws-001",
+        "status": "active",
+        "criteria": "DocumentReference?status=current&type=11506-3",
+        "channel_type": "websocket",
+        "endpoint": "wss://portal.medflow.local/notifications/docref",
+        "reason": "Push new docrefs into the MedFlow customer portal notifications panel",
+        "expiry": "2026-06-30T23:59:59Z",
+        "created_at": now,
+        "last_fired": None,
+        "fired_count": 0,
+    }
+    FHIR_SUBSCRIPTIONS["sub-email-001"] = {
+        "id": "sub-email-001",
+        "status": "active",
+        "criteria": "DocumentReference?status=current&category=discharge-summary",
+        "channel_type": "email",
+        "endpoint": "mailto:care-coordination@cardinalhealth.org",
+        "reason": "Notify care coordination team on new discharge summaries",
+        "expiry": "2025-09-30T23:59:59Z",
+        "created_at": now,
+        "last_fired": None,
+        "fired_count": 0,
+    }
+
+
+def _seed_direct_log() -> None:
+    """Seed the DIRECT_LOG with one historical message so the log isn't empty on first GET."""
+    if DIRECT_LOG:
+        return
+    DIRECT_LOG.append({
+        "message_id": f"direct-{uuid.uuid4().hex[:12]}",
+        "from_address": "medflow@cardinalhealth.direct",
+        "to_address": "dr.carter@cardinalhealth.direct",
+        "recipient_name": "Dr. Emily Carter",
+        "job_id": "JOB-2024-001",
+        "document_summary": "Cardiology follow-up SOAP note (historical seed)",
+        "attachment_format": "pdf",
+        "sent_at": _now_iso(),
+        "status": "delivered",
+        "smime_signed": True,
+        "trust_anchor_validated": True,
+        "latency_ms": 156,
+        "response": "250 OK message accepted for delivery",
+    })
+
+
+# Run both seeders eagerly so the in-memory state is non-empty even before the
+# first request hits the new endpoints.
+_seed_fhir_subscriptions()
+_seed_direct_log()
+
+
+def _scan_terms(text_lower: str, term_map: dict[str, tuple[str, str]]) -> list[dict[str, Any]]:
+    """Scan text for known clinical terms; return {code, display, confidence, matched_term} entries."""
+    out: list[dict[str, Any]] = []
+    for term, (code, display) in term_map.items():
+        if term in text_lower:
+            # Confidence is slightly higher for longer matches (less ambiguity).
+            conf = round(min(0.99, 0.82 + 0.012 * len(term)), 3)
+            out.append({
+                "code": code,
+                "display": display,
+                "confidence": conf,
+                "matched_term": term,
+            })
+    return out
+
+
+def _extract_laterality_flags(text_lower: str) -> list[dict[str, Any]]:
+    """Detect left/right/bilateral body part mentions."""
+    flags: list[dict[str, Any]] = []
+    for part in LATERALITY_BODY_PARTS:
+        for side in ("left", "right", "bilateral"):
+            pattern = rf"\b{side}\s+{part}\b"
+            m = re.search(pattern, text_lower)
+            if m:
+                flags.append({
+                    "term": m.group(0),
+                    "side": side,
+                    "confidence": 0.93 if side == "bilateral" else 0.90,
+                })
+    return flags
+
+
+def _extract_negation_flags(text_lower: str) -> list[dict[str, Any]]:
+    """Detect 'no X', 'denies X', 'without X' patterns for clinical symptoms."""
+    flags: list[dict[str, Any]] = []
+    # Curated list of clinically-meaningful negation patterns.
+    patterns: list[tuple[str, str]] = [
+        (r"\bno chest pain\b",            "chest pain"),
+        (r"\bdenies chest pain\b",         "chest pain"),
+        (r"\bwithout chest pain\b",        "chest pain"),
+        (r"\bno dyspnea\b",                "dyspnea"),
+        (r"\bdenies dyspnea\b",            "dyspnea"),
+        (r"\bno shortness of breath\b",    "shortness of breath"),
+        (r"\bdenies shortness of breath\b", "shortness of breath"),
+        (r"\bno edema\b",                  "edema"),
+        (r"\bdenies edema\b",              "edema"),
+        (r"\bno fever\b",                  "fever"),
+        (r"\bdenies fever\b",              "fever"),
+        (r"\bno cough\b",                  "cough"),
+        (r"\bdenies cough\b",              "cough"),
+    ]
+    seen: set[str] = set()
+    for pat, term in patterns:
+        if term in seen:
+            continue
+        if re.search(pat, text_lower):
+            flags.append({
+                "term": term,
+                "negated": True,
+                "confidence": 0.92,
+            })
+            seen.add(term)
+    return flags
+
+
+def _extract_uncertain_markers(text: str) -> list[str]:
+    """Find bracketed uncertainty tokens like [INAUDIBLE], [UNCLEAR]."""
+    markers: list[str] = []
+    for m in re.finditer(r"\[(?:INAUDIBLE|UNCLEAR|INDETERMINATE|UNINTELLIGIBLE|GAP)\]", text, flags=re.IGNORECASE):
+        markers.append(m.group(0))
+    return markers
+
+
+def _extract_allergies(text_lower: str) -> list[str]:
+    """Extract plain-string allergies from patterns like 'allergy to penicillin' / 'allergic to ...'."""
+    allergies: list[str] = []
+    for m in re.finditer(r"\b(?:allergy to|allergic to)\s+([a-z0-9\- ]+?)(?:\.|,|;| and |$)", text_lower):
+        substance = m.group(1).strip().rstrip(",.")
+        if substance:
+            allergies.append(substance)
+    return allergies
+
+
+# --- Hallucination guard helpers ---
+
+
+def _detect_medication_conflicts(text_lower: str) -> list[dict[str, Any]]:
+    """
+    Detect same drug mentioned with different doses.
+    e.g. "lisinopril 10mg" and "lisinopril 20mg" → conflict.
+    """
+    conflicts: list[dict[str, Any]] = []
+    for drug in RXNORM_MAP.keys():
+        # Find all "<drug> <number><unit>" occurrences.
+        pattern = rf"\b{re.escape(drug)}\s+(\d+(?:\.\d+)?)\s*(mg|mcg|ml|g|units?|iu)\b"
+        matches = list(re.finditer(pattern, text_lower))
+        if len(matches) >= 2:
+            doses = {(m.group(1), m.group(2)) for m in matches}
+            if len(doses) >= 2:
+                first, last = matches[0], matches[-1]
+                conflicts.append({
+                    "type": "medication_conflict",
+                    "severity": "high",
+                    "segment": text_lower[first.start():last.end()],
+                    "start_char": first.start(),
+                    "end_char": last.end(),
+                    "explanation": f"{drug.title()} mentioned with multiple distinct doses: {sorted(doses)}.",
+                    "recommendation": f"Confirm the correct {drug} dose with the provider before submission.",
+                })
+    return conflicts
+
+
+def _detect_laterality_conflicts(text_lower: str) -> list[dict[str, Any]]:
+    """Detect 'left X' then 'right X' for the same body part within the same document."""
+    conflicts: list[dict[str, Any]] = []
+    for part in LATERALITY_BODY_PARTS:
+        left_matches = list(re.finditer(rf"\bleft\s+{part}\b", text_lower))
+        right_matches = list(re.finditer(rf"\bright\s+{part}\b", text_lower))
+        if left_matches and right_matches:
+            start = min(left_matches[0].start(), right_matches[0].start())
+            end = max(left_matches[-1].end(), right_matches[-1].end())
+            conflicts.append({
+                "type": "laterality_conflict",
+                "severity": "high",
+                "segment": text_lower[start:end],
+                "start_char": start,
+                "end_char": end,
+                "explanation": f"Both 'left {part}' and 'right {part}' appear in the same document — possible laterality error.",
+                "recommendation": f"Verify which {part} the provider intended and reconcile the transcript.",
+            })
+    return conflicts
+
+
+def _detect_negation_conflicts(text_lower: str) -> list[dict[str, Any]]:
+    """Detect 'denies X' / 'no X' followed by 'reports X' / 'complains of X' for the same symptom."""
+    conflicts: list[dict[str, Any]] = []
+    negation_patterns = [r"\bno\s+{}\b", r"\bdenies\s+{}\b", r"\bwithout\s+{}\b", r"\bnegative\s+for\s+{}\b"]
+    assertion_patterns = [r"\breports\s+{}\b", r"\bcomplains\s+of\s+{}\b", r"\bendorses\s+{}\b", r"\bpositive\s+for\s+{}\b"]
+    symptoms = ["chest pain", "dyspnea", "shortness of breath", "edema", "fever", "cough"]
+    for symptom in symptoms:
+        esc = re.escape(symptom)
+        neg_hit = None
+        for tmpl in negation_patterns:
+            m = re.search(tmpl.format(esc), text_lower)
+            if m:
+                neg_hit = m
+                break
+        if not neg_hit:
+            continue
+        pos_hit = None
+        for tmpl in assertion_patterns:
+            m = re.search(tmpl.format(esc), text_lower)
+            if m:
+                pos_hit = m
+                break
+        if pos_hit:
+            start = min(neg_hit.start(), pos_hit.start())
+            end = max(neg_hit.end(), pos_hit.end())
+            conflicts.append({
+                "type": "negation_conflict",
+                "severity": "critical",
+                "segment": text_lower[start:end],
+                "start_char": start,
+                "end_char": end,
+                "explanation": f"'{symptom}' is both denied and affirmed in the same document — possible hallucination.",
+                "recommendation": f"Listen to the source audio around the '{symptom}' mentions and reconcile.",
+            })
+    return conflicts
+
+
+def _detect_unsupported_abbreviations(text: str) -> list[dict[str, Any]]:
+    """Flag ISMP-style error-prone abbreviations (case-sensitive)."""
+    flags: list[dict[str, Any]] = []
+    for abbr in UNSUPPORTED_ABBREVIATIONS:
+        for m in re.finditer(rf"(?<!\w){re.escape(abbr)}(?!\w)", text):
+            flags.append({
+                "type": "unsupported_abbreviation",
+                "severity": "medium",
+                "segment": text[m.start():m.end()],
+                "start_char": m.start(),
+                "end_char": m.end(),
+                "explanation": f"Abbreviation '{abbr}' is on the ISMP error-prone abbreviation list.",
+                "recommendation": "Replace with the full word form (e.g. 'unit', 'daily', 'international unit').",
+            })
+    return flags
+
+
+def _detect_numeric_inconsistencies(text_lower: str) -> list[dict[str, Any]]:
+    """Detect numeric inconsistencies (e.g. same vital/lab mentioned with different values)."""
+    flags: list[dict[str, Any]] = []
+    # Look for "BP <num>/<num>" pattern repeated with different values.
+    bp_matches = list(re.finditer(r"\bbp\s+(\d{2,3})\s*[/\\]\s*(\d{2,3})\b", text_lower))
+    if len(bp_matches) >= 2:
+        vals = {(m.group(1), m.group(2)) for m in bp_matches}
+        if len(vals) >= 2:
+            first, last = bp_matches[0], bp_matches[-1]
+            flags.append({
+                "type": "numeric_inconsistency",
+                "severity": "medium",
+                "segment": text_lower[first.start():last.end()],
+                "start_char": first.start(),
+                "end_char": last.end(),
+                "explanation": f"Blood pressure documented with multiple distinct values: {sorted(vals)}.",
+                "recommendation": "Reconcile the most recent BP value with the source audio.",
+            })
+    # Look for HR <num> repeated.
+    hr_matches = list(re.finditer(r"\bhr\s+(\d{1,3})\b", text_lower))
+    if len(hr_matches) >= 2:
+        vals = {m.group(1) for m in hr_matches}
+        if len(vals) >= 2:
+            first, last = hr_matches[0], hr_matches[-1]
+            flags.append({
+                "type": "numeric_inconsistency",
+                "severity": "low",
+                "segment": text_lower[first.start():last.end()],
+                "start_char": first.start(),
+                "end_char": last.end(),
+                "explanation": f"Heart rate documented with multiple distinct values: {sorted(vals)}.",
+                "recommendation": "Reconcile the most recent HR value with the source audio.",
+            })
+    return flags
+
+
+def _detect_unsupported_claims(text_lower: str) -> list[dict[str, Any]]:
+    """Flag rare / unsupported medical claims (heuristic mock)."""
+    flags: list[dict[str, Any]] = []
+    suspicious_patterns = [
+        (r"\b100\s*%\s*cure\b",            "claim of 100% cure"),
+        (r"\bmiracle\s+cure\b",            "claim of miracle cure"),
+        (r"\bguaranteed\s+no\s+recurrence\b", "guaranteed no recurrence claim"),
+    ]
+    for pattern, label in suspicious_patterns:
+        for m in re.finditer(pattern, text_lower):
+            flags.append({
+                "type": "unsupported_claim",
+                "severity": "high",
+                "segment": text_lower[m.start():m.end()],
+                "start_char": m.start(),
+                "end_char": m.end(),
+                "explanation": f"Document contains unsupported claim: {label}.",
+                "recommendation": "Remove or substantiate the claim with a citation before submission.",
+            })
+    # Flag [INAUDIBLE] adjacent to a confident statement.
+    inaudible_idx = text_lower.find("[inaudible]")
+    if inaudible_idx >= 0:
+        window = text_lower[max(0, inaudible_idx - 80):inaudible_idx + 80]
+        if any(w in window for w in ("confirmed", "definitely", "no doubt", "clear that")):
+            flags.append({
+                "type": "unsupported_claim",
+                "severity": "medium",
+                "segment": text_lower[inaudible_idx:inaudible_idx + 11],
+                "start_char": inaudible_idx,
+                "end_char": inaudible_idx + 11,
+                "explanation": "[INAUDIBLE] marker adjacent to a confident statement — the confident claim may have been fabricated over an inaudible region.",
+                "recommendation": "Listen to the audio around the [INAUDIBLE] marker and confirm or remove the confident statement.",
+            })
+    return flags
+
+
+def _compute_risk_level(flags: list[dict[str, Any]]) -> tuple[float, str]:
+    """Map flags to (overall_risk_score 0-1, risk_level)."""
+    if not flags:
+        return 0.05, "low"
+    weight = {"low": 0.10, "medium": 0.25, "high": 0.45, "critical": 0.65}
+    score = sum(weight.get(f["severity"], 0.10) for f in flags)
+    score = min(1.0, round(score, 3))
+    if score >= 0.85:
+        level = "critical"
+    elif score >= 0.55:
+        level = "high"
+    elif score >= 0.25:
+        level = "medium"
+    else:
+        level = "low"
+    return score, level
+
+
+# =====================================================================
+# 1. AI Operations Copilot — POST /api/copilot/summarize  (A1)
+# =====================================================================
+
+
+@app.post("/api/copilot/summarize")
+async def copilot_summarize(body: CopilotRequest) -> dict[str, Any]:
+    """
+    Generate an AI Operations Copilot summary for a given date (SIMULATED).
+
+    Production would call an LLM (e.g. GPT-4 / Claude / GLM-4) with the live
+    workflow DB + SLA metrics; here we deterministically aggregate
+    SEED_JOBS + JOB_SLA_META so the summary is realistic + reproducible.
+    """
+    # Resolve date (default = today UTC).
+    if body.date:
+        date_str = body.date
+    else:
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    manager_role = body.manager_role or "Offshore Delivery Manager"
+
+    # Build a per-job enriched view that combines SEED_JOBS + JOB_SLA_META.
+    enriched: list[dict[str, Any]] = []
+    for job_id, job in SEED_JOBS.items():
+        meta = JOB_SLA_META.get(job_id, {})
+        enriched.append({
+            "job_id": job_id,
+            "job_number": f"MF-2024-{job_id.rsplit('-', 1)[-1]}",
+            "specialty": job.get("specialty", "Unknown"),
+            "priority": meta.get("priority", job.get("priority", "normal")),
+            "status": meta.get("status", "Unknown"),
+            "sla_percent": meta.get("sla_percent", 0.0),
+            "sla_risk_label": meta.get("sla_risk_label", "on-track"),
+        })
+
+    # Compute the daily backlog risk aggregates.
+    total_in_pipeline = sum(1 for j in enriched if j["status"] != "Delivered")
+    at_risk_count = sum(1 for j in enriched if j["sla_risk_label"] == "at-risk")
+    breach_count = sum(1 for j in enriched if j["sla_risk_label"] == "breach")
+    stat_jobs = sum(1 for j in enriched if j["priority"] == "STAT")
+    escalated_count = sum(1 for j in enriched if j["status"] == "Escalated")
+
+    # SLA breach predictions: pick from at-risk + breach jobs (max 5).
+    breach_candidates = [j for j in enriched if j["sla_risk_label"] in ("at-risk", "breach")]
+    breach_candidates.sort(key=lambda j: j["sla_percent"], reverse=True)
+    sla_breach_predictions: list[dict[str, Any]] = []
+    for j in breach_candidates[:5]:
+        remaining_hours = max(0.0, round((1.0 - j["sla_percent"]) * 24.0, 1))
+        # Recommend action by severity + priority.
+        if j["sla_risk_label"] == "breach":
+            action = "escalate"
+            confidence = 0.94
+        elif j["priority"] == "STAT":
+            action = "expedite"
+            confidence = 0.88
+        elif j["sla_percent"] >= 0.7:
+            action = "notify_client"
+            confidence = 0.79
+        else:
+            action = "reassign"
+            confidence = 0.72
+        sla_breach_predictions.append({
+            "job_id": j["job_id"],
+            "job_number": j["job_number"],
+            "current_status": j["status"],
+            "sla_percent": round(j["sla_percent"], 2),
+            "predicted_breach_in_hours": remaining_hours,
+            "confidence": confidence,
+            "recommended_action": action,
+        })
+
+    # High rework items (mock realistic values).
+    high_rework_items = [
+        {"type": "provider",  "name": "Dr. Synthetic Cardiologist", "rework_rate_pct": 18.5, "job_count": 2},
+        {"type": "template",  "name": "Cardiology SOAP v2",         "rework_rate_pct": 12.3, "job_count": 4},
+        {"type": "specialty", "name": "Orthopedics",                "rework_rate_pct": 22.1, "job_count": 1},
+        {"type": "template",  "name": "Operative Note (Ortho)",      "rework_rate_pct": 16.7, "job_count": 1},
+    ]
+
+    # Staffing recommendation (mock).
+    staffing_recommendation = {
+        "current_load": total_in_pipeline,
+        "recommended_shift_adjustment": "+1 evening shift (16:00-00:00 UTC) for STAT backlog",
+        "surplus_deficit": -2,  # negative = deficit
+    }
+
+    # 3-paragraph markdown client ops report draft.
+    predictions_inline = ", ".join(
+        f"{p['job_number']} ({p['predicted_breach_in_hours']}h, {p['recommended_action']})"
+        for p in sla_breach_predictions
+    ) or "none"
+    client_ops_report_draft = (
+        f"# Client Operations Report — {date_str}\n\n"
+        f"## 1. Pipeline Overview\n"
+        f"Cardinal Health Systems — daily transcription operations report for {date_str}. "
+        f"Active pipeline volume is {total_in_pipeline} jobs, of which {at_risk_count} are "
+        f"flagged at-risk and {breach_count} have breached SLA. {stat_jobs} STAT-priority "
+        f"jobs remain in flight, and {escalated_count} job is currently in Escalated status. "
+        f"Overall throughput is below the contractual target and warrants immediate intervention.\n\n"
+        f"## 2. SLA Risk & Predicted Breaches\n"
+        f"Based on the current SLA window consumption, the following jobs are predicted to "
+        f"breach within the next 24 hours: {predictions_inline}. "
+        f"Recommended actions include shift reassignment, STAT expedite, and proactive "
+        f"client notification. The high-rework providers / templates listed above should be "
+        f"routed to senior QA for the next 48 hours to bring the rework rate under control.\n\n"
+        f"## 3. Staffing & Next Steps\n"
+        f"Current offshore load is {staffing_recommendation['current_load']} jobs with a "
+        f"surplus / deficit of {staffing_recommendation['surplus_deficit']} FTE. We recommend "
+        f"{staffing_recommendation['recommended_shift_adjustment']}. {manager_role} will "
+        f"follow up with the on-site team lead before 09:00 UTC tomorrow. No raw PHI was "
+        f"used in this aggregate report."
+    )
+
+    summary = {
+        "date": date_str,
+        "manager_role": manager_role,
+        "daily_backlog_risk": {
+            "total_in_pipeline": total_in_pipeline,
+            "at_risk_count": at_risk_count,
+            "breach_count": breach_count,
+            "stat_jobs": stat_jobs,
+            "escalated_count": escalated_count,
+        },
+        "sla_breach_predictions": sla_breach_predictions,
+        "high_rework_items": high_rework_items,
+        "staffing_recommendation": staffing_recommendation,
+        "client_ops_report_draft": client_ops_report_draft,
+        "generated_at": _now_iso(),
+        "data_minimized": True,
+    }
+
+    COPILOT_CACHE[date_str] = summary
+    logger.info(
+        "copilot summary generated date=%s predictions=%d",
+        date_str,
+        len(sla_breach_predictions),
+    )
+    return summary
+
+
+# =====================================================================
+# 2. Medical Entity Extraction + Auto-Coding — POST /api/entities/extract  (A3)
+# =====================================================================
+
+
+@app.post("/api/entities/extract")
+async def extract_entities(body: EntityExtractionRequest) -> dict[str, Any]:
+    """
+    SIMULATED clinical NLP entity extraction + auto-coding.
+
+    Production would call a fine-tuned clinical NLP model (BioBERT /
+    scispaCy / BioGPT) with UMLS / SNOMED-CT / ICD-10 / CPT / RxNorm
+    lexicon matching. Here we use deterministic keyword + regex matching
+    against built-in maps so the response is realistic + reproducible.
+    """
+    text = body.text or ""
+    text_lower = text.lower()
+
+    if len(text.strip()) < 5:
+        return {
+            "snomed_ct": [],
+            "icd10": [],
+            "cpt": [],
+            "rxnorm": [],
+            "medications": [],
+            "diagnoses": [],
+            "allergies": [],
+            "laterality_flags": [],
+            "negation_flags": [],
+            "uncertain_markers": [],
+            "model": "medflow-cnl-v1.0.0",
+            "prompt_version": "v1.0.0",
+            "extracted_at": _now_iso(),
+            "disclaimer": "Auto-suggested codes for editor review. Not auto-applied. Editor must verify before submission.",
+            "document_type_hint": body.document_type,
+            "note": "Input text too short — no entities extracted.",
+        }
+
+    snomed = _scan_terms(text_lower, SNOMED_CT_MAP)
+    icd10 = _scan_terms(text_lower, ICD10_MAP)
+    cpt = _scan_terms(text_lower, CPT_MAP)
+    rxnorm = _scan_terms(text_lower, RXNORM_MAP)
+
+    # Plain-string arrays (deduped, preserve insertion order).
+    medications: list[str] = []
+    for term in RXNORM_MAP.keys():
+        if term in text_lower and term not in medications:
+            medications.append(term)
+    diagnoses: list[str] = []
+    for term in SNOMED_CT_MAP.keys():
+        if term in text_lower and term not in diagnoses:
+            diagnoses.append(term)
+
+    allergies = _extract_allergies(text_lower)
+    laterality_flags = _extract_laterality_flags(text_lower)
+    negation_flags = _extract_negation_flags(text_lower)
+    uncertain_markers = _extract_uncertain_markers(text)
+
+    return {
+        "snomed_ct": snomed,
+        "icd10": icd10,
+        "cpt": cpt,
+        "rxnorm": rxnorm,
+        "medications": medications,
+        "diagnoses": diagnoses,
+        "allergies": allergies,
+        "laterality_flags": laterality_flags,
+        "negation_flags": negation_flags,
+        "uncertain_markers": uncertain_markers,
+        "model": "medflow-cnl-v1.0.0",
+        "prompt_version": "v1.0.0",
+        "extracted_at": _now_iso(),
+        "disclaimer": "Auto-suggested codes for editor review. Not auto-applied. Editor must verify before submission.",
+        "document_type_hint": body.document_type,
+    }
+
+
+# =====================================================================
+# 3. Hallucination Detection — POST /api/hallucination/detect  (A4)
+# =====================================================================
+
+
+@app.post("/api/hallucination/detect")
+async def detect_hallucinations(body: HallucinationRequest) -> dict[str, Any]:
+    """
+    SIMULATED hallucination / fabrication guardrail.
+
+    Production would call a domain-specific model that cross-references
+    the source transcript's low-confidence regions against the structured
+    document; here we use deterministic pattern matching for common
+    LLM / STT failure modes (medication conflicts, laterality conflicts,
+    negation conflicts, unsupported abbreviations, numeric inconsistencies,
+    unsupported claims).
+    """
+    text = body.text or ""
+    text_lower = text.lower()
+
+    flags: list[dict[str, Any]] = []
+    flags.extend(_detect_medication_conflicts(text_lower))
+    flags.extend(_detect_laterality_conflicts(text_lower))
+    flags.extend(_detect_negation_conflicts(text_lower))
+    flags.extend(_detect_unsupported_abbreviations(text))
+    flags.extend(_detect_numeric_inconsistencies(text_lower))
+    flags.extend(_detect_unsupported_claims(text_lower))
+
+    overall_score, risk_level = _compute_risk_level(flags)
+
+    return {
+        "flags": flags,
+        "overall_risk_score": overall_score,
+        "risk_level": risk_level,
+        "model": "medflow-hallucination-guard-v1.0.0",
+        "audio_duration_sec": body.audio_duration_sec,
+        "checked_at": _now_iso(),
+        "disclaimer": "AI guardrail output — not a substitute for clinical review. All flags require editor verification.",
+    }
+
+
+# =====================================================================
+# 4. FHIR Subscriptions — GET / POST / DELETE + fire  (C2)
+#
+# NOTE: this group is declared BEFORE the existing GET /api/fhir/{job_id}
+# route below — see the file-top comment for the routing-order rationale.
+# =====================================================================
+
+
+@app.get("/api/fhir/subscription")
+async def list_fhir_subscriptions() -> dict[str, Any]:
+    """List all FHIR Subscriptions (in-memory store seeded with 3 demo entries)."""
+    subs = list(FHIR_SUBSCRIPTIONS.values())
+    return {
+        "subscriptions": subs,
+        "count": len(subs),
+    }
+
+
+@app.post("/api/fhir/subscription")
+async def create_fhir_subscription(body: FhirSubscriptionCreateRequest) -> dict[str, Any]:
+    """Create a new FHIR Subscription (SIMULATED — in-memory only)."""
+    sub_id = f"sub-rest-{uuid.uuid4().hex[:8]}"
+    now = _now_iso()
+    subscription = {
+        "id": sub_id,
+        "status": "active",
+        "criteria": body.criteria,
+        "channel_type": body.channel_type,
+        "endpoint": body.endpoint,
+        "reason": body.reason,
+        "expiry": "2026-12-31T23:59:59Z",
+        "created_at": now,
+        "last_fired": None,
+        "fired_count": 0,
+    }
+    FHIR_SUBSCRIPTIONS[sub_id] = subscription
+    logger.info("fhir subscription created id=%s criteria=%s", sub_id, body.criteria)
+    return subscription
+
+
+@app.post("/api/fhir/subscription/{sub_id}/fire")
+async def fire_fhir_subscription(sub_id: str, body: FhirSubscriptionFireRequest) -> dict[str, Any]:
+    """Simulate firing a FHIR Subscription for a delivered job."""
+    if sub_id not in FHIR_SUBSCRIPTIONS:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": f"Unknown subscription id '{sub_id}'",
+                "correlation_id": _generate_correlation_id(),
+            },
+        )
+    sub = FHIR_SUBSCRIPTIONS[sub_id]
+    if sub.get("status") not in ("active",):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "subscription_not_active",
+                "message": f"Subscription '{sub_id}' is not active (status={sub.get('status')}).",
+                "correlation_id": _generate_correlation_id(),
+            },
+        )
+    # Simulate webhook delivery latency 80-400ms.
+    latency_ms = random.randint(80, 400)
+    await asyncio.sleep(latency_ms / 1000.0)
+    now = _now_iso()
+    sub["last_fired"] = now
+    sub["fired_count"] = (sub.get("fired_count") or 0) + 1
+    logger.info(
+        "fhir subscription fired id=%s job=%s latency=%dms",
+        sub_id,
+        body.job_id,
+        latency_ms,
+    )
+    return {
+        "subscription_id": sub_id,
+        "job_id": body.job_id,
+        "fired_at": now,
+        "response_code": 200,
+        "latency_ms": latency_ms,
+        "status": "delivered",
+    }
+
+
+@app.delete("/api/fhir/subscription/{sub_id}")
+async def cancel_fhir_subscription(sub_id: str) -> dict[str, Any]:
+    """Cancel a FHIR Subscription (sets status to 'off')."""
+    if sub_id not in FHIR_SUBSCRIPTIONS:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": f"Unknown subscription id '{sub_id}'",
+                "correlation_id": _generate_correlation_id(),
+            },
+        )
+    sub = FHIR_SUBSCRIPTIONS[sub_id]
+    sub["status"] = "off"
+    logger.info("fhir subscription cancelled id=%s", sub_id)
+    return {
+        "id": sub_id,
+        "status": "off",
+        "cancelled_at": _now_iso(),
+    }
+
+
+# =====================================================================
+# 5. DirectTrust Secure Messaging — POST /api/direct/send + GET /api/direct/log  (C5)
+# =====================================================================
+
+# Direct address pattern: name@domain.direct OR name@hie.org
+_DIRECT_ADDRESS_RE = re.compile(
+    r"^[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9.\-]+\.direct|hie\.org)$"
+)
+
+
+@app.post("/api/direct/send")
+async def direct_send(body: DirectSendRequest) -> dict[str, Any]:
+    """
+    SIMULATED DirectTrust secure messaging send (S/MIME-signed).
+
+    Production would look up the recipient's X.509 certificate in the
+    Direct trust anchor bundle, S/MIME-sign + encrypt the message, and
+    send via the configured SMTP smart host. Here we validate the address
+    pattern and simulate SMTP-like latency + response.
+    """
+    recipient = body.recipient_address or ""
+    # Simulate network latency 100-400ms.
+    latency_ms = random.randint(100, 400)
+    await asyncio.sleep(latency_ms / 1000.0)
+
+    # Failure conditions: address contains "fail" OR doesn't match the pattern.
+    failed = False
+    reason = ""
+    if "fail" in recipient.lower():
+        failed = True
+        reason = "Recipient address explicitly marked as failing (contains 'fail')."
+    elif not _DIRECT_ADDRESS_RE.match(recipient):
+        failed = True
+        reason = (
+            f"Recipient address '{recipient}' does not match the Direct address "
+            "pattern (name@domain.direct or name@hie.org)."
+        )
+
+    msg_id = f"direct-{uuid.uuid4().hex[:12]}"
+    now = _now_iso()
+
+    if failed:
+        record = {
+            "message_id": msg_id,
+            "from_address": "medflow@cardinalhealth.direct",
+            "to_address": recipient,
+            "recipient_name": body.recipient_name,
+            "job_id": body.job_id,
+            "document_summary": body.document_summary,
+            "attachment_format": body.attachment_format,
+            "sent_at": now,
+            "status": "failed",
+            "smime_signed": True,
+            "trust_anchor_validated": True,
+            "latency_ms": latency_ms,
+            "response": f"550 5.1.2 recipient address rejected: {reason}",
+            "error_reason": reason,
+        }
+    else:
+        record = {
+            "message_id": msg_id,
+            "from_address": "medflow@cardinalhealth.direct",
+            "to_address": recipient,
+            "recipient_name": body.recipient_name,
+            "job_id": body.job_id,
+            "document_summary": body.document_summary,
+            "attachment_format": body.attachment_format,
+            "sent_at": now,
+            "status": "delivered",
+            "smime_signed": True,
+            "trust_anchor_validated": True,
+            "latency_ms": latency_ms,
+            "response": "250 OK message accepted for delivery",
+        }
+
+    DIRECT_LOG.append(record)
+    if len(DIRECT_LOG) > 100:
+        del DIRECT_LOG[: len(DIRECT_LOG) - 100]
+    logger.info(
+        "direct send job=%s recipient=%s status=%s",
+        body.job_id,
+        recipient,
+        record["status"],
+    )
+    return record
+
+
+@app.get("/api/direct/log")
+async def direct_log() -> dict[str, Any]:
+    """Return the in-memory log of sent Direct messages (most recent first)."""
+    return {
+        "messages": list(reversed(DIRECT_LOG)),
+        "count": len(DIRECT_LOG),
     }
 
 

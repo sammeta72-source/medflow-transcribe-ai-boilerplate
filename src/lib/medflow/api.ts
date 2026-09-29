@@ -161,3 +161,237 @@ export async function fetchHl7(jobId: string): Promise<string> {
   const data = await res.json();
   return data.message ?? data.hl7 ?? JSON.stringify(data, null, 2);
 }
+
+// ── New additive features (Task 11) — FastAPI-backed via the /api/ai proxy ──
+
+// A1 — AI Operations Copilot
+export interface CopilotSummary {
+  date: string;
+  manager_role: string;
+  daily_backlog_risk: {
+    total_in_pipeline: number;
+    at_risk_count: number;
+    breach_count: number;
+    stat_jobs: number;
+    escalated_count: number;
+  };
+  sla_breach_predictions: Array<{
+    job_id: string;
+    job_number: string;
+    current_status: string;
+    sla_percent: number;
+    predicted_breach_in_hours: number;
+    confidence: number;
+    recommended_action: string;
+  }>;
+  high_rework_items: Array<{
+    type: "provider" | "template" | "specialty";
+    name: string;
+    rework_rate_pct: number;
+    job_count: number;
+  }>;
+  staffing_recommendation: {
+    current_load: number;
+    recommended_shift_adjustment: string;
+    surplus_deficit: number;
+  };
+  client_ops_report_draft: string;
+  generated_at: string;
+  data_minimized: boolean;
+}
+
+export async function fetchCopilotSummary(
+  managerRole = "Offshore Delivery Manager",
+): Promise<CopilotSummary> {
+  const res = await fetchWithRetry(
+    agentsUrl("/copilot/summarize"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manager_role: managerRole }),
+    },
+  );
+  if (!res.ok) throw new Error(`fetchCopilotSummary failed: ${res.status}`);
+  return res.json();
+}
+
+// A3 — Medical Entity Extraction + Auto-Coding
+export interface ExtractedEntities {
+  snomed_ct: Array<{ code: string; display: string; confidence: number; matched_term: string }>;
+  icd10: Array<{ code: string; display: string; confidence: number }>;
+  cpt: Array<{ code: string; display: string; confidence: number }>;
+  rxnorm: Array<{ code: string; display: string; confidence: number }>;
+  medications: string[];
+  diagnoses: string[];
+  allergies: string[];
+  laterality_flags: Array<{ term: string; side: string; confidence: number }>;
+  negation_flags: Array<{ term: string; negated: boolean; confidence: number }>;
+  uncertain_markers: string[];
+  model: string;
+  prompt_version: string;
+  extracted_at: string;
+  disclaimer: string;
+}
+
+export async function extractEntities(text: string, documentType?: string): Promise<ExtractedEntities> {
+  const res = await fetchWithRetry(
+    agentsUrl("/entities/extract"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, document_type: documentType }),
+    },
+  );
+  if (!res.ok) throw new Error(`extractEntities failed: ${res.status}`);
+  return res.json();
+}
+
+// A4 — Hallucination Detection
+export interface HallucinationFlag {
+  type: string;
+  severity: "low" | "medium" | "high" | "critical";
+  segment: string;
+  start_char: number;
+  end_char: number;
+  explanation: string;
+  recommendation: string;
+}
+
+export interface HallucinationResult {
+  flags: HallucinationFlag[];
+  overall_risk_score: number;
+  risk_level: "low" | "medium" | "high" | "critical";
+  model: string;
+  checked_at: string;
+  disclaimer: string;
+}
+
+export async function detectHallucinations(
+  text: string,
+  transcript?: string,
+  audioDurationSec?: number,
+): Promise<HallucinationResult> {
+  const res = await fetchWithRetry(
+    agentsUrl("/hallucination/detect"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, transcript, audio_duration_sec: audioDurationSec }),
+    },
+  );
+  if (!res.ok) throw new Error(`detectHallucinations failed: ${res.status}`);
+  return res.json();
+}
+
+// C2 — FHIR Subscriptions
+export interface FhirSubscription {
+  id: string;
+  status: "active" | "error" | "off";
+  criteria: string;
+  channel_type: "rest-hook" | "websocket" | "email";
+  endpoint: string;
+  reason: string;
+  expiry: string;
+  created_at: string;
+  last_fired: string | null;
+  fired_count: number;
+}
+
+export async function fetchFhirSubscriptions(): Promise<FhirSubscription[]> {
+  const res = await fetchWithRetry(agentsUrl("/fhir/subscription"));
+  if (!res.ok) throw new Error(`fetchFhirSubscriptions failed: ${res.status}`);
+  const data = await res.json();
+  return data.subscriptions ?? [];
+}
+
+export async function createFhirSubscription(
+  criteria: string,
+  channel_type: string,
+  endpoint: string,
+  reason: string,
+): Promise<FhirSubscription> {
+  const res = await fetchWithRetry(
+    agentsUrl("/fhir/subscription"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ criteria, channel_type, endpoint, reason }),
+    },
+  );
+  if (!res.ok) throw new Error(`createFhirSubscription failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fireFhirSubscription(
+  subscriptionId: string,
+  jobId: string,
+): Promise<{ subscription_id: string; job_id: string; fired_at: string; response_code: number; latency_ms: number; status: string }> {
+  const res = await fetchWithRetry(
+    agentsUrl(`/fhir/subscription/${subscriptionId}/fire`),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId }),
+    },
+  );
+  if (!res.ok) throw new Error(`fireFhirSubscription failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteFhirSubscription(subscriptionId: string): Promise<{ ok: boolean }> {
+  const res = await fetchWithRetry(
+    agentsUrl(`/fhir/subscription/${subscriptionId}`),
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw new Error(`deleteFhirSubscription failed: ${res.status}`);
+  return { ok: true };
+}
+
+// C5 — DirectTrust Secure Messaging
+export interface DirectMessage {
+  message_id: string;
+  from_address: string;
+  to_address: string;
+  recipient_name: string;
+  job_id: string;
+  document_summary: string;
+  attachment_format: string;
+  sent_at: string;
+  status: "delivered" | "failed";
+  smime_signed: boolean;
+  trust_anchor_validated: boolean;
+  latency_ms: number;
+  response: string;
+}
+
+export async function sendDirectMessage(
+  jobId: string,
+  recipientAddress: string,
+  recipientName: string,
+  documentSummary?: string,
+  attachmentFormat: "pdf" | "ccda" | "fhir" = "pdf",
+): Promise<DirectMessage> {
+  const res = await fetchWithRetry(
+    agentsUrl("/direct/send"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        job_id: jobId,
+        recipient_address: recipientAddress,
+        recipient_name: recipientName,
+        document_summary: documentSummary,
+        attachment_format: attachmentFormat,
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`sendDirectMessage failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchDirectLog(): Promise<DirectMessage[]> {
+  const res = await fetchWithRetry(agentsUrl("/direct/log"));
+  if (!res.ok) throw new Error(`fetchDirectLog failed: ${res.status}`);
+  const data = await res.json();
+  return data.messages ?? [];
+}

@@ -8,17 +8,30 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle, CheckCircle2, Database, FileJson, FileText, Loader2,
-  Plug, RefreshCw, ServerCog, Settings as SettingsIcon, Sparkles, ToggleLeft,
-  Terminal, Zap,
+  Mail, Plug, RefreshCw, Send, ServerCog, Settings as SettingsIcon,
+  Sparkles, Terminal, ToggleLeft, Trash2, Webhook, Zap,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { useFetch } from "@/hooks/medflow/useFetch";
-import { fetchDbConnectors, fetchFhir, fetchHl7, switchDbConnector, testDbConnector } from "@/lib/medflow/api";
+import {
+  createFhirSubscription, deleteFhirSubscription, fetchDbConnectors,
+  fetchDirectLog, fetchFhir, fetchFhirSubscriptions, fetchHl7,
+  fireFhirSubscription, sendDirectMessage, switchDbConnector, testDbConnector,
+} from "@/lib/medflow/api";
+import type { DirectMessage, FhirSubscription } from "@/lib/medflow/api";
 import type { DbConnector, DbTestResult } from "@/lib/medflow/types";
 import { formatRelative } from "@/lib/medflow/format";
 import { cn } from "@/lib/utils";
@@ -192,6 +205,8 @@ export function Integrations() {
         <TabsList>
           <TabsTrigger value="ehr">EHR & Delivery</TabsTrigger>
           <TabsTrigger value="db">Database Connectors</TabsTrigger>
+          <TabsTrigger value="fhir-subs">FHIR Subscriptions</TabsTrigger>
+          <TabsTrigger value="direct">DirectTrust Messaging</TabsTrigger>
         </TabsList>
 
         {/* ── EHR & Delivery ────────────────────────────────── */}
@@ -406,6 +421,16 @@ export function Integrations() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ── FHIR Subscriptions ──────────────────────────── */}
+        <TabsContent value="fhir-subs" className="space-y-4">
+          <FhirSubscriptionsTab />
+        </TabsContent>
+
+        {/* ── DirectTrust Messaging ───────────────────────── */}
+        <TabsContent value="direct" className="space-y-4">
+          <DirectMessagingTab />
+        </TabsContent>
       </Tabs>
 
       {/* FHIR dialog */}
@@ -436,5 +461,416 @@ export function Integrations() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ── FHIR Subscriptions tab (Task 11-c) ────────────────────────────────────
+// On activate: fetchFhirSubscriptions() via useEffect. Create form + table.
+const SUB_STATUS_BADGE: Record<string, string> = {
+  active: "bg-emerald-100 text-emerald-700 border-emerald-300",
+  error: "bg-red-100 text-red-700 border-red-300",
+  off: "bg-slate-100 text-slate-600 border-slate-300",
+};
+const CHANNEL_BADGE: Record<string, string> = {
+  "rest-hook": "bg-teal-100 text-teal-800 border-teal-300",
+  websocket: "bg-cyan-100 text-cyan-800 border-cyan-300",
+  email: "bg-amber-100 text-amber-800 border-amber-300",
+};
+
+function FhirSubscriptionsTab() {
+  const [subs, setSubs] = useState<FhirSubscription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [firing, setFiring] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const [fCriteria, setFCriteria] = useState("DocumentReference?status=current");
+  const [fChannel, setFChannel] = useState("rest-hook");
+  const [fEndpoint, setFEndpoint] = useState("");
+  const [fReason, setFReason] = useState("");
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await fetchFhirSubscriptions();
+      setSubs(list);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function handleCreate() {
+    setCreating(true);
+    try {
+      const created = await createFhirSubscription(fCriteria, fChannel, fEndpoint || "https://example.com/fhir/notify", fReason || "Manual subscription");
+      toast.success("Subscription created", { description: `${created.id} · ${created.channel_type}` });
+      setFEndpoint("");
+      setFReason("");
+      await load();
+    } catch (e) {
+      toast.error(`Create failed: ${(e as Error).message}`);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleFire(id: string) {
+    setFiring(id);
+    try {
+      const res = await fireFhirSubscription(id, "JOB-2024-006");
+      toast.success(`Subscription fired — ${res.response_code} OK, ${res.latency_ms}ms`, {
+        description: `${id} → JOB-2024-006`,
+      });
+      await load();
+    } catch (e) {
+      toast.error(`Fire failed: ${(e as Error).message}`);
+    } finally {
+      setFiring(null);
+    }
+  }
+
+  async function handleCancel(id: string) {
+    setCancelling(id);
+    try {
+      await deleteFhirSubscription(id);
+      toast.success(`Subscription cancelled`, { description: id });
+      await load();
+    } catch (e) {
+      toast.error(`Cancel failed: ${(e as Error).message}`);
+    } finally {
+      setCancelling(null);
+    }
+  }
+
+  if (loading) return <SectionLoading rows={3} />;
+  if (error) return <SectionError message={error} onRetry={load} />;
+
+  return (
+    <>
+      <Alert className="border-secondary/30 bg-secondary/5 [&>svg]:text-secondary">
+        <Webhook className="h-4 w-4" />
+        <AlertDescription className="text-[12px]">
+          When a document is finalized, the <span className="font-semibold">Delivery Agent</span> fires these subscriptions to push the FHIR DocumentReference to subscribed EHR endpoints in real time.
+        </AlertDescription>
+      </Alert>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Webhook className="h-4 w-4 text-secondary" /> Create Subscription
+          </CardTitle>
+          <CardDescription className="text-xs">FHIR Subscription R5 / R4 — push notifications on document finalization</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Criteria</label>
+            <Input value={fCriteria} onChange={e => setFCriteria(e.target.value)} className="h-9 font-mono text-[11px]" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Channel type</label>
+            <Select value={fChannel} onValueChange={setFChannel}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="rest-hook">rest-hook</SelectItem>
+                <SelectItem value="websocket">websocket</SelectItem>
+                <SelectItem value="email">email</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Endpoint</label>
+            <Input value={fEndpoint} onChange={e => setFEndpoint(e.target.value)} placeholder="https://ehr.example.org/fhir/notify" className="h-9 font-mono text-[11px]" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Reason</label>
+            <Input value={fReason} onChange={e => setFReason(e.target.value)} placeholder="Auto-deliver finalized notes" className="h-9 text-[11px]" />
+          </div>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <Button onClick={handleCreate} disabled={creating} className="bg-primary text-primary-foreground">
+              {creating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Webhook className="mr-1.5 h-3.5 w-3.5" />}
+              Create subscription
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Active Subscriptions</CardTitle>
+            <CardDescription className="text-xs">{subs.length} configured</CardDescription>
+          </div>
+          <Button size="sm" variant="outline" onClick={load}><RefreshCw className="mr-1 h-3 w-3" /> Refresh</Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {subs.length === 0 ? (
+            <EmptyState icon={Webhook} message="No FHIR subscriptions yet — create one above." />
+          ) : (
+            <div className="max-h-[480px] mf-scroll overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card">
+                  <TableRow>
+                    <TableHead className="text-[11px]">ID</TableHead>
+                    <TableHead className="text-[11px]">Status</TableHead>
+                    <TableHead className="text-[11px]">Criteria</TableHead>
+                    <TableHead className="text-[11px]">Channel</TableHead>
+                    <TableHead className="text-[11px]">Endpoint</TableHead>
+                    <TableHead className="text-[11px]">Reason</TableHead>
+                    <TableHead className="text-[11px]">Expiry</TableHead>
+                    <TableHead className="text-[11px] text-right">Fired</TableHead>
+                    <TableHead className="text-[11px]">Last fired</TableHead>
+                    <TableHead className="text-[11px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subs.map((s, i) => (
+                    <motion.tr
+                      key={s.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.15, delay: i * 0.03 }}
+                      className="hover:bg-muted/40"
+                    >
+                      <TableCell className="font-mono text-[10px] font-semibold">{s.id}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("text-[10px]", SUB_STATUS_BADGE[s.status] ?? "bg-slate-100 text-slate-600 border-slate-300")}>
+                          {s.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-[10px] text-muted-foreground max-w-[160px] truncate">{s.criteria}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("text-[10px]", CHANNEL_BADGE[s.channel_type] ?? "")}>{s.channel_type}</Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-[10px] text-muted-foreground max-w-[200px] truncate">{s.endpoint}</TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground max-w-[160px] truncate">{s.reason}</TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground">{formatRelative(s.expiry)}</TableCell>
+                      <TableCell className="text-right font-mono text-[11px] font-semibold">{s.fired_count}</TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground">{s.last_fired ? formatRelative(s.last_fired) : "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px]"
+                            onClick={() => handleFire(s.id)}
+                            disabled={firing === s.id || s.status === "off"}
+                          >
+                            {firing === s.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Zap className="mr-1 h-3 w-3" />}
+                            Fire
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-[11px] text-red-700 hover:bg-red-50"
+                            onClick={() => handleCancel(s.id)}
+                            disabled={cancelling === s.id || s.status === "off"}
+                          >
+                            {cancelling === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </motion.tr>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+// ── DirectTrust Messaging tab (Task 11-c) ─────────────────────────────────
+const DIRECT_STATUS_BADGE: Record<string, string> = {
+  delivered: "bg-emerald-100 text-emerald-700 border-emerald-300",
+  failed: "bg-red-100 text-red-700 border-red-300",
+};
+
+function DirectMessagingTab() {
+  const [log, setLog] = useState<DirectMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+
+  const [dJobId, setDJobId] = useState("JOB-2024-006");
+  const [dAddr, setDAddr] = useState("");
+  const [dName, setDName] = useState("");
+  const [dSummary, setDSummary] = useState("");
+  const [dFmt, setDFmt] = useState<"pdf" | "ccda" | "fhir">("pdf");
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await fetchDirectLog();
+      setLog(list);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function handleSend() {
+    setSending(true);
+    try {
+      const msg = await sendDirectMessage(
+        dJobId,
+        dAddr || "dr.carter@cardinalhealth.direct",
+        dName || "Dr. Emily Carter",
+        dSummary || "Cardiology follow-up SOAP note",
+        dFmt,
+      );
+      toast.success(`${msg.recipient_name}: delivered ✓`, {
+        description: `S/MIME signed, trust-anchor validated, ${msg.latency_ms}ms`,
+      });
+      setDAddr("");
+      setDName("");
+      setDSummary("");
+      await load();
+    } catch (e) {
+      toast.error(`Direct send failed: ${(e as Error).message}`);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (loading) return <SectionLoading rows={3} />;
+  if (error) return <SectionError message={error} onRetry={load} />;
+
+  return (
+    <>
+      <Alert className="border-secondary/30 bg-secondary/5 [&>svg]:text-secondary">
+        <Mail className="h-4 w-4" />
+        <AlertDescription className="text-[12px]">
+          DirectTrust secure messaging — <span className="font-semibold">S/MIME-signed, trust-anchor-validated</span>, for sending finalized documents to any Direct address.
+        </AlertDescription>
+      </Alert>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Send className="h-4 w-4 text-secondary" /> Send via Direct
+          </CardTitle>
+          <CardDescription className="text-xs">Push a finalized document to a Direct address</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Job ID</label>
+            <Input value={dJobId} onChange={e => setDJobId(e.target.value)} className="h-9 font-mono text-[11px]" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recipient address</label>
+            <Input value={dAddr} onChange={e => setDAddr(e.target.value)} placeholder="dr.carter@cardinalhealth.direct" className="h-9 font-mono text-[11px]" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recipient name</label>
+            <Input value={dName} onChange={e => setDName(e.target.value)} placeholder="Dr. Emily Carter" className="h-9 text-[11px]" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Document summary</label>
+            <Textarea value={dSummary} onChange={e => setDSummary(e.target.value)} placeholder="Cardiology follow-up SOAP note" className="min-h-[40px] text-[11px]" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Attachment format</label>
+            <Select value={dFmt} onValueChange={(v) => setDFmt(v as "pdf" | "ccda" | "fhir")}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pdf">PDF</SelectItem>
+                <SelectItem value="ccda">C-CDA</SelectItem>
+                <SelectItem value="fhir">FHIR</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <Button onClick={handleSend} disabled={sending} className="bg-primary text-primary-foreground">
+              {sending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
+              Send via Direct
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Direct Message Log</CardTitle>
+            <CardDescription className="text-xs">{log.length} messages · most recent first</CardDescription>
+          </div>
+          <Button size="sm" variant="outline" onClick={load}><RefreshCw className="mr-1 h-3 w-3" /> Refresh</Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {log.length === 0 ? (
+            <EmptyState icon={Mail} message="No Direct messages sent yet." />
+          ) : (
+            <div className="max-h-[480px] mf-scroll overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card">
+                  <TableRow>
+                    <TableHead className="text-[11px]">Message ID</TableHead>
+                    <TableHead className="text-[11px]">From</TableHead>
+                    <TableHead className="text-[11px]">To</TableHead>
+                    <TableHead className="text-[11px]">Recipient</TableHead>
+                    <TableHead className="text-[11px]">Job</TableHead>
+                    <TableHead className="text-[11px]">Fmt</TableHead>
+                    <TableHead className="text-[11px]">Sent</TableHead>
+                    <TableHead className="text-[11px]">Status</TableHead>
+                    <TableHead className="text-[11px] text-center">S/MIME</TableHead>
+                    <TableHead className="text-[11px] text-center">Trust</TableHead>
+                    <TableHead className="text-[11px] text-right">Latency</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {log.map((m, i) => (
+                    <motion.tr
+                      key={m.message_id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.15, delay: i * 0.03 }}
+                      className="hover:bg-muted/40"
+                    >
+                      <TableCell className="font-mono text-[10px] font-semibold">{m.message_id}</TableCell>
+                      <TableCell className="font-mono text-[10px] text-muted-foreground max-w-[140px] truncate">{m.from_address}</TableCell>
+                      <TableCell className="font-mono text-[10px] text-muted-foreground max-w-[160px] truncate">{m.to_address}</TableCell>
+                      <TableCell className="text-[11px] font-medium">{m.recipient_name}</TableCell>
+                      <TableCell className="font-mono text-[10px] text-muted-foreground">{m.job_id}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px] uppercase">{m.attachment_format}</Badge>
+                      </TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground">{formatRelative(m.sent_at)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("text-[10px]", DIRECT_STATUS_BADGE[m.status] ?? "bg-slate-100 text-slate-600 border-slate-300")}>
+                          {m.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {m.smime_signed ? <CheckCircle2 className="mx-auto h-3.5 w-3.5 text-emerald-600" /> : <span className="text-red-600">✗</span>}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {m.trust_anchor_validated ? <CheckCircle2 className="mx-auto h-3.5 w-3.5 text-emerald-600" /> : <span className="text-red-600">✗</span>}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-[11px] font-semibold">{m.latency_ms}ms</TableCell>
+                    </motion.tr>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }

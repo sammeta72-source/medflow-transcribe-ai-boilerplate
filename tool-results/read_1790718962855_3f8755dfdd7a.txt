@@ -1,0 +1,1693 @@
+     1→"""
+     2→================================================================================
+     3→MedFlow Transcribe AI — AI Agent Orchestration & Multi-Database Connector Service
+     4→================================================================================
+     5→
+     6→This is the **FastAPI backend** mini-service for the MedFlow Transcribe AI
+     7→Medical Transcription BPO SaaS. The Next.js frontend (port 3000) calls this
+     8→service through the Caddy gateway. Frontend requests use a relative path with
+     9→`?XTransformPort=8000` (e.g. `fetch('/api/agents?XTransformPort=8000')`) and
+    10→Caddy forwards the request to `localhost:8000` after stripping the query.
+    11→
+    12→Because of that gateway convention, ALL routes in this service are mounted at
+    13→`/api/...` (NOT `/api/v1/...`). Keep it simple.
+    14→
+    15→Responsibilities:
+    16→  1. Orchestrate 10 AI agents (intake-validation → reporting).
+    17→  2. Abstract multi-database connectors (SQLite / PostgreSQL / Supabase /
+    18→     MySQL / MongoDB) with simulated connection-test + switch endpoints.
+    19→  3. Generate synthetic FHIR R4 (DocumentReference) + HL7 v2.5 (MDM^T02)
+    20→     payloads for downstream EHR delivery.
+    21→  4. Expose integration adapter catalogue (Epic, Cerner, SFTP, HL7, etc.).
+    22→  5. In-memory demo state (no DB in this service — Next.js app owns Prisma/SQLite).
+    23→
+    24→Python: 3.12  •  FastAPI 0.128  •  uvicorn 0.44  •  pydantic 2.12
+    25→"""
+    26→
+    27→from __future__ import annotations
+    28→
+    29→import asyncio
+    30→import logging
+    31→import random
+    32→import uuid
+    33→from datetime import datetime, timezone
+    34→from typing import Any, Optional
+    35→
+    36→from fastapi import FastAPI, HTTPException, Request, status
+    37→from fastapi.middleware.cors import CORSMiddleware
+    38→from fastapi.responses import HTMLResponse, PlainTextResponse
+    39→from pydantic import BaseModel, Field
+    40→
+    41→# =====================================================================
+    42→# Logging setup
+    43→# =====================================================================
+    44→logging.basicConfig(
+    45→    level=logging.INFO,
+    46→    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    47→)
+    48→logger = logging.getLogger("ai-agents-service")
+    49→
+    50→# =====================================================================
+    51→# Constants
+    52→# =====================================================================
+    53→SERVICE_NAME = "ai-agents-service"
+    54→SERVICE_VERSION = "1.0.0"
+    55→DEFAULT_PROMPT_VERSION = "v1.2.0"
+    56→
+    57→# =====================================================================
+    58→# In-memory state (seeded demo data; no DB needed in this service)
+    59→# =====================================================================
+    60→
+    61→# --- Seeded synthetic patient demo jobs ---
+    62→# These power the FHIR / HL7 export endpoints with realistic content.
+    63→SEED_JOBS: dict[str, dict[str, Any]] = {
+    64→    "JOB-2024-001": {
+    65→        "job_id": "JOB-2024-001",
+    66→        "tenant_id": "org_demo",
+    67→        "patient": {
+    68→            "mrn": "SYN-884721",
+    69→            "name": "Synthetic Patient Alpha",
+    70→            "dob": "1968-04-12",
+    71→            "gender": "male",
+    72→        },
+    73→        "provider": {"npi": "1932456789", "name": "Dr. Synthetic Cardiologist"},
+    74→        "encounter": {
+    75→            "type": "cardiology_followup",
+    76→            "date": "2024-09-15",
+    77→            "facility": "Synthetic Heart Center",
+    78→            "department": "Cardiology",
+    79→        },
+    80→        "audio_minutes": 4.55,
+    81→        "priority": "urgent",
+    82→        "specialty": "Cardiology",
+    83→    },
+    84→    "JOB-2024-002": {
+    85→        "job_id": "JOB-2024-002",
+    86→        "tenant_id": "org_demo",
+    87→        "patient": {
+    88→            "mrn": "SYN-884722",
+    89→            "name": "Synthetic Patient Beta",
+    90→            "dob": "1975-11-30",
+    91→            "gender": "female",
+    92→        },
+    93→        "provider": {"npi": "1932456790", "name": "Dr. Synthetic Orthopedist"},
+    94→        "encounter": {
+    95→            "type": "knee_arthroscopy_postop",
+    96→            "date": "2024-09-16",
+    97→            "facility": "Synthetic Bone & Joint Clinic",
+    98→            "department": "Orthopedics",
+    99→        },
+   100→        "audio_minutes": 6.20,
+   101→        "priority": "normal",
+   102→        "specialty": "Orthopedics",
+   103→    },
+   104→    "JOB-2024-003": {
+   105→        "job_id": "JOB-2024-003",
+   106→        "tenant_id": "org_demo",
+   107→        "patient": {
+   108→            "mrn": "SYN-884723",
+   109→            "name": "Synthetic Patient Gamma",
+   110→            "dob": "1990-02-08",
+   111→            "gender": "female",
+   112→        },
+   113→        "provider": {"npi": "1932456791", "name": "Dr. Synthetic Endocrinologist"},
+   114→        "encounter": {
+   115→            "type": "diabetes_followup",
+   116→            "date": "2024-09-17",
+   117→            "facility": "Synthetic Endocrine Clinic",
+   118→            "department": "Endocrinology",
+   119→        },
+   120→        "audio_minutes": 3.80,
+   121→        "priority": "normal",
+   122→        "specialty": "Endocrinology",
+   123→    },
+   124→    "JOB-2024-004": {
+   125→        "job_id": "JOB-2024-004",
+   126→        "tenant_id": "org_demo",
+   127→        "patient": {
+   128→            "mrn": "SYN-884724",
+   129→            "name": "Synthetic Patient Delta",
+   130→            "dob": "1955-07-22",
+   131→            "gender": "male",
+   132→        },
+   133→        "provider": {"npi": "1932456792", "name": "Dr. Synthetic Pulmonologist"},
+   134→        "encounter": {
+   135→            "type": "copd_exacerbation",
+   136→            "date": "2024-09-18",
+   137→            "facility": "Synthetic Lung Center",
+   138→            "department": "Pulmonology",
+   139→        },
+   140→        "audio_minutes": 5.40,
+   141→        "priority": "urgent",
+   142→        "specialty": "Pulmonology",
+   143→    },
+   144→    "JOB-2024-005": {
+   145→        "job_id": "JOB-2024-005",
+   146→        "tenant_id": "org_demo",
+   147→        "patient": {
+   148→            "mrn": "SYN-884725",
+   149→            "name": "Synthetic Patient Epsilon",
+   150→            "dob": "1982-12-05",
+   151→            "gender": "male",
+   152→        },
+   153→        "provider": {"npi": "1932456793", "name": "Dr. Synthetic Neurologist"},
+   154→        "encounter": {
+   155→            "type": "migraine_eval",
+   156→            "date": "2024-09-19",
+   157→            "facility": "Synthetic Neuro Clinic",
+   158→            "department": "Neurology",
+   159→        },
+   160→        "audio_minutes": 4.10,
+   161→        "priority": "normal",
+   162→        "specialty": "Neurology",
+   163→    },
+   164→    "JOB-2024-006": {
+   165→        "job_id": "JOB-2024-006",
+   166→        "tenant_id": "org_demo",
+   167→        "patient": {
+   168→            "mrn": "SYN-884726",
+   169→            "name": "Synthetic Patient Zeta",
+   170→            "dob": "1970-03-18",
+   171→            "gender": "female",
+   172→        },
+   173→        "provider": {"npi": "1932456794", "name": "Dr. Synthetic Pediatrician"},
+   174→        "encounter": {
+   175→            "type": "well_child_check",
+   176→            "date": "2024-09-20",
+   177→            "facility": "Synthetic Pediatric Clinic",
+   178→            "department": "Pediatrics",
+   179→        },
+   180→        "audio_minutes": 3.20,
+   181→        "priority": "normal",
+   182→        "specialty": "Pediatrics",
+   183→    },
+   184→}
+   185→
+   186→# --- 10 AI agents catalogue ---
+   187→# Each entry mirrors the data shape the frontend expects to render on the
+   188→# Agent Operations board (cards with status pill, model, last run metrics, etc.)
+   189→AGENTS: dict[str, dict[str, Any]] = {
+   190→    "intake-validation": {
+   191→        "id": "intake-validation",
+   192→        "name": "Intake Validation Agent",
+   193→        "description": "Validates incoming metadata, audio file integrity, checksums, "
+   194→        "and runs malware scan before a job enters the pipeline.",
+   195→        "category": "governance",
+   196→        "status": "idle",
+   197→        "last_run_at": None,
+   198→        "last_duration_ms": None,
+   199→        "last_cost_usd": None,
+   200→        "success_count": 0,
+   201→        "failure_count": 0,
+   202→        "model": "rule-engine",
+   203→        "prompt_version": "v1.0.3",
+   204→        "supports_human_escalation": False,
+   205→        "input_schema": {
+   206→            "job_id": "string",
+   207→            "tenant_id": "string",
+   208→            "audio_uri": "string (s3://...)",
+   209→            "metadata": "object (provider, patient_mrn, encounter)",
+   210→        },
+   211→        "output_schema": {
+   212→            "valid": "boolean",
+   213→            "issues": "string[]",
+   214→            "metadata_completeness": "number (0-1)",
+   215→            "checksum_verified": "boolean",
+   216→            "malware_scan": "string (clean|flagged)",
+   217→        },
+   218→        "recent_runs": [],
+   219→    },
+   220→    "transcription": {
+   221→        "id": "transcription",
+   222→        "name": "Transcription Agent",
+   223→        "description": "Runs Whisper-based speech-to-text on the audio, returns the "
+   224→        "raw transcript with confidence scores and low-confidence regions.",
+   225→        "category": "ai",
+   226→        "status": "idle",
+   227→        "last_run_at": None,
+   228→        "last_duration_ms": None,
+   229→        "last_cost_usd": None,
+   230→        "success_count": 0,
+   231→        "failure_count": 0,
+   232→        "model": "whisper-large-v3",
+   233→        "prompt_version": "v2.4.1",
+   234→        "supports_human_escalation": True,
+   235→        "input_schema": {
+   236→            "job_id": "string",
+   237→            "audio_uri": "string (s3://...)",
+   238→            "language_hint": "string (optional)",
+   239→        },
+   240→        "output_schema": {
+   241→            "transcript": "string",
+   242→            "confidence": "number (0-1)",
+   243→            "low_confidence_regions": "array<{start_ms,end_ms,reason}>",
+   244→            "language": "string",
+   245→            "duration_seconds": "number",
+   246→            "model": "string",
+   247→        },
+   248→        "recent_runs": [],
+   249→    },
+   250→    "structuring": {
+   251→        "id": "structuring",
+   252→        "name": "Clinical Document Structuring Agent",
+   253→        "description": "Formats the raw transcript into the chosen clinical template "
+   254→        "(SOAP, Operative Note, Discharge Summary) and extracts entities.",
+   255→        "category": "ai",
+   256→        "status": "idle",
+   257→        "last_run_at": None,
+   258→        "last_duration_ms": None,
+   259→        "last_cost_usd": None,
+   260→        "success_count": 0,
+   261→        "failure_count": 0,
+   262→        "model": "glm-4-longcontext",
+   263→        "prompt_version": DEFAULT_PROMPT_VERSION,
+   264→        "supports_human_escalation": True,
+   265→        "input_schema": {
+   266→            "job_id": "string",
+   267→            "transcript": "string",
+   268→            "document_template_id": "string (e.g. tpl_soap)",
+   269→        },
+   270→        "output_schema": {
+   271→            "document_type": "string",
+   272→            "sections": "array<{title, body}>",
+   273→            "extracted_entities": "object",
+   274→            "uncertain_markers": "string[]",
+   275→        },
+   276→        "recent_runs": [],
+   277→    },
+   278→    "qa": {
+   279→        "id": "qa",
+   280→        "name": "Medical QA Agent",
+   281→        "description": "Performs risk and quality scoring; flags medication conflicts, "
+   282→        "laterality ambiguity, missing allergies, etc.",
+   283→        "category": "ai",
+   284→        "status": "idle",
+   285→        "last_run_at": None,
+   286→        "last_duration_ms": None,
+   287→        "last_cost_usd": None,
+   288→        "success_count": 0,
+   289→        "failure_count": 0,
+   290→        "model": "glm-4-longcontext",
+   291→        "prompt_version": DEFAULT_PROMPT_VERSION,
+   292→        "supports_human_escalation": True,
+   293→        "input_schema": {
+   294→            "job_id": "string",
+   295→            "structured_doc": "object",
+   296→        },
+   297→        "output_schema": {
+   298→            "quality_score": "number (0-100)",
+   299→            "risk_score": "number (0-1)",
+   300→            "severity": "string (low|medium|high)",
+   301→            "findings": "array<{type, severity, detail, suggestion}>",
+   302→            "recommended_action": "string",
+   303→        },
+   304→        "recent_runs": [],
+   305→    },
+   306→    "allocation": {
+   307→        "id": "allocation",
+   308→        "name": "Work Allocation Agent",
+   309→        "description": "Routes a validated job to the best human transcriber / QA "
+   310→        "reviewer based on specialty, shift, workload, and QA score.",
+   311→        "category": "orchestration",
+   312→        "status": "idle",
+   313→        "last_run_at": None,
+   314→        "last_duration_ms": None,
+   315→        "last_cost_usd": None,
+   316→        "success_count": 0,
+   317→        "failure_count": 0,
+   318→        "model": "internal",
+   319→        "prompt_version": "v1.4.0",
+   320→        "supports_human_escalation": False,
+   321→        "input_schema": {
+   322→            "job_id": "string",
+   323→            "specialty": "string",
+   324→            "priority": "string",
+   325→        },
+   326→        "output_schema": {
+   327→            "assigned_user_id": "string",
+   328→            "assigned_user_name": "string",
+   329→            "reason": "string",
+   330→            "fallback_queue": "string",
+   331→            "correlation_id": "string",
+   332→        },
+   333→        "recent_runs": [],
+   334→    },
+   335→    "sla": {
+   336→        "id": "sla",
+   337→        "name": "SLA Monitoring Agent",
+   338→        "description": "Continuously flags jobs at 50/75/90/100% of SLA window "
+   339→        "and triggers escalation workflows.",
+   340→        "category": "monitoring",
+   341→        "status": "idle",
+   342→        "last_run_at": None,
+   343→        "last_duration_ms": None,
+   344→        "last_cost_usd": None,
+   345→        "success_count": 0,
+   346→        "failure_count": 0,
+   347→        "model": "rule-engine",
+   348→        "prompt_version": "v1.1.0",
+   349→        "supports_human_escalation": False,
+   350→        "input_schema": {
+   351→            "tenant_id": "string",
+   352→            "window_minutes": "number",
+   353→        },
+   354→        "output_schema": {
+   355→            "jobs_at_risk": "array<{job_id, sla_pct, priority}>",
+   356→            "escalation_triggered": "number",
+   357→        },
+   358→        "recent_runs": [],
+   359→    },
+   360→    "delivery": {
+   361→        "id": "delivery",
+   362→        "name": "Delivery Agent",
+   363→        "description": "Delivers the final clinical document to the configured "
+   364→        "destination (FHIR webhook, HL7 v2, customer portal, SFTP).",
+   365→        "category": "delivery",
+   366→        "status": "idle",
+   367→        "last_run_at": None,
+   368→        "last_duration_ms": None,
+   369→        "last_cost_usd": None,
+   370→        "success_count": 0,
+   371→        "failure_count": 0,
+   372→        "model": "internal",
+   373→        "prompt_version": "v1.3.2",
+   374→        "supports_human_escalation": True,
+   375→        "input_schema": {
+   376→            "job_id": "string",
+   377→            "destination_id": "string",
+   378→            "format": "string (fhir|hl7|portal|sftp)",
+   379→        },
+   380→        "output_schema": {
+   381→            "channel": "string",
+   382→            "destination_id": "string",
+   383→            "status": "string (delivered|failed|queued)",
+   384→            "response_code": "number",
+   385→            "latency_ms": "number",
+   386→            "retry_count": "number",
+   387→        },
+   388→        "recent_runs": [],
+   389→    },
+   390→    "billing": {
+   391→        "id": "billing",
+   392→        "name": "Billing and Usage Agent",
+   393→        "description": "Meters audio/AI minutes per job, computes cost against the "
+   394→        "tenant subscription plan, tracks remaining quota and overage.",
+   395→        "category": "billing",
+   396→        "status": "idle",
+   397→        "last_run_at": None,
+   398→        "last_duration_ms": None,
+   399→        "last_cost_usd": None,
+   400→        "success_count": 0,
+   401→        "failure_count": 0,
+   402→        "model": "internal",
+   403→        "prompt_version": "v1.2.1",
+   404→        "supports_human_escalation": False,
+   405→        "input_schema": {
+   406→            "job_id": "string",
+   407→            "tenant_id": "string",
+   408→            "audio_minutes": "number",
+   409→        },
+   410→        "output_schema": {
+   411→            "audio_minutes": "number",
+   412→            "ai_minutes": "number",
+   413→            "cost_usd": "number",
+   414→            "plan": "string",
+   415→            "remaining_minutes": "number",
+   416→            "overage": "boolean",
+   417→        },
+   418→        "recent_runs": [],
+   419→    },
+   420→    "security": {
+   421→        "id": "security",
+   422→        "name": "Security Monitoring Agent",
+   423→        "description": "Detects anomalies — bulk downloads, off-hours access, "
+   424→        "impossible-travel logins — and revokes support access if needed.",
+   425→        "category": "security",
+   426→        "status": "idle",
+   427→        "last_run_at": None,
+   428→        "last_duration_ms": None,
+   429→        "last_cost_usd": None,
+   430→        "success_count": 0,
+   431→        "failure_count": 0,
+   432→        "model": "rule-engine",
+   433→        "prompt_version": "v1.5.0",
+   434→        "supports_human_escalation": True,
+   435→        "input_schema": {
+   436→            "tenant_id": "string",
+   437→            "window_minutes": "number",
+   438→        },
+   439→        "output_schema": {
+   440→            "alerts": "array<{type, severity, user_id, detail}>",
+   441→            "revoked_support_access": "number",
+   442→        },
+   443→        "recent_runs": [],
+   444→    },
+   445→    "reporting": {
+   446→        "id": "reporting",
+   447→        "name": "Reporting Agent",
+   448→        "description": "Generates scheduled and on-demand operational / clinical "
+   449→        "reports (turnaround, QA scores, productivity) as PDF/CSV.",
+   450→        "category": "reporting",
+   451→        "status": "idle",
+   452→        "last_run_at": None,
+   453→        "last_duration_ms": None,
+   454→        "last_cost_usd": None,
+   455→        "success_count": 0,
+   456→        "failure_count": 0,
+   457→        "model": "internal",
+   458→        "prompt_version": "v1.1.4",
+   459→        "supports_human_escalation": False,
+   460→        "input_schema": {
+   461→            "report_type": "string (turnaround|qa|productivity)",
+   462→            "tenant_id": "string",
+   463→            "period": "string (ISO8601 range)",
+   464→            "format": "string (pdf|csv)",
+   465→        },
+   466→        "output_schema": {
+   467→            "report_id": "string",
+   468→            "generated_at": "string (ISO8601)",
+   469→            "format": "string",
+   470→            "s3_uri": "string",
+   471→            "rows": "number",
+   472→        },
+   473→        "recent_runs": [],
+   474→    },
+   475→}
+   476→
+   477→# Order is used to render the agent pipeline left-to-right on the frontend.
+   478→AGENT_ORDER = [
+   479→    "intake-validation",
+   480→    "transcription",
+   481→    "structuring",
+   482→    "qa",
+   483→    "allocation",
+   484→    "sla",
+   485→    "delivery",
+   486→    "billing",
+   487→    "security",
+   488→    "reporting",
+   489→]
+   490→
+   491→# In-memory log of all agent runs (capped at 100).
+   492→RUNS: list[dict[str, Any]] = []
+   493→
+   494→# Active database connector — defaults to sqlite (the Next.js Prisma DB).
+   495→ACTIVE_DB_CONNECTOR = "sqlite"
+   496→
+   497→
+   498→# =====================================================================
+   499→# Pydantic request models (pragmatic — keep typing loose for `input`)
+   500→# =====================================================================
+   501→
+   502→
+   503→class AgentRunRequest(BaseModel):
+   504→    """Body for POST /api/agents/{agent_id}/run."""
+   505→
+   506→    job_id: str = Field(..., description="TranscriptionJob id, e.g. JOB-2024-001")
+   507→    tenant_id: str = Field(..., description="Organization id owning the job")
+   508→    correlation_id: Optional[str] = Field(
+   509→        None, description="Optional trace id to propagate across agents"
+   510→    )
+   511→    input: Optional[dict[str, Any]] = Field(
+   512→        None, description="Optional agent-specific input overrides"
+   513→    )
+   514→
+   515→
+   516→class DBTestRequest(BaseModel):
+   517→    """Body for POST /api/db/connectors/test."""
+   518→
+   519→    connector: str = Field(..., description="One of: sqlite, postgres, supabase, mysql, mongodb")
+   520→    connection_string: str = Field(..., description="Raw connection string to validate")
+   521→
+   522→
+   523→class DBSwitchRequest(BaseModel):
+   524→    """Body for POST /api/db/connectors/{connector}/switch."""
+   525→
+   526→    connection_string: str = Field(..., description="Connection string for new backend")
+   527→
+   528→
+   529→# =====================================================================
+   530→# Helper functions
+   531→# =====================================================================
+   532→
+   533→
+   534→def _now_iso() -> str:
+   535→    """ISO-8601 UTC timestamp string."""
+   536→    return datetime.now(timezone.utc).isoformat()
+   537→
+   538→
+   539→def _generate_correlation_id() -> str:
+   540→    """Generate a synthetic correlation id (used when caller omits one)."""
+   541→    return f"corr-{uuid.uuid4().hex[:12]}"
+   542→
+   543→
+   544→def _summarize_agent(a: dict[str, Any]) -> dict[str, Any]:
+   545→    """Return the public-facing agent object (without recent_runs to keep list light)."""
+   546→    return {
+   547→        "id": a["id"],
+   548→        "name": a["name"],
+   549→        "description": a["description"],
+   550→        "category": a["category"],
+   551→        "status": a["status"],
+   552→        "last_run_at": a["last_run_at"],
+   553→        "last_duration_ms": a["last_duration_ms"],
+   554→        "last_cost_usd": a["last_cost_usd"],
+   555→        "success_count": a["success_count"],
+   556→        "failure_count": a["failure_count"],
+   557→        "model": a["model"],
+   558→        "prompt_version": a["prompt_version"],
+   559→        "supports_human_escalation": a["supports_human_escalation"],
+   560→        "input_schema": a["input_schema"],
+   561→        "output_schema": a["output_schema"],
+   562→    }
+   563→
+   564→
+   565→def _agent_output(agent_id: str, job_id: str, correlation_id: str) -> dict[str, Any]:
+   566→    """
+   567→    Produce a realistic, agent-type-specific output payload.
+   568→    The shapes are defined in the task spec — keep them faithful.
+   569→    """
+   570→    # Pull the seeded demo job so transcripts reference synthetic patient data.
+   571→    job = SEED_JOBS.get(job_id, {})
+   572→    specialty = job.get("encounter", {}).get("type", "cardiology_followup") if job else "cardiology_followup"
+   573→    patient_name = job.get("patient", {}).get("name", "Synthetic Patient")
+   574→    provider_name = job.get("provider", {}).get("name", "Dr. Synthetic Provider")
+   575→    facility = job.get("encounter", {}).get("facility", "Synthetic Clinic")
+   576→    audio_minutes = job.get("audio_minutes", 4.55)
+   577→
+   578→    if agent_id == "intake-validation":
+   579→        return {
+   580→            "valid": True,
+   581→            "issues": [],
+   582→            "metadata_completeness": 0.97,
+   583→            "checksum_verified": True,
+   584→            "malware_scan": "clean",
+   585→        }
+   586→
+   587→    if agent_id == "transcription":
+   588→        transcript = (
+   589→            f"This is {provider_name}. I'm seeing the patient today for a "
+   590→            f"{specialty.replace('_', ' ')} follow-up. The patient reports "
+   591→            "feeling somewhat better since the last visit, with reduced shortness "
+   592→            "of breath on exertion. Blood pressure today is 132 over 84, heart "
+   593→            "rate 74 and regular, respirations 16, oxygen saturation 97 percent "
+   594→            "on room air. Lungs are clear to auscultation bilaterally, no wheeze "
+   595→            "or crackles. Cardiovascular exam reveals a regular rate and rhythm, "
+   596→            "no murmurs, rubs or gallops. I'm going to continue the current "
+   597→            "medication regimen and reorder a lipid panel and BMP in three months. "
+   598→            "Will follow up in six months, sooner if symptoms worsen."
+   599→        )
+   600→        return {
+   601→            "transcript": transcript,
+   602→            "confidence": 0.92,
+   603→            "low_confidence_regions": [
+   604→                {"start_ms": 12000, "end_ms": 14500, "reason": "background noise"},
+   605→                {"start_ms": 18000, "end_ms": 19500, "reason": "speaker overlap"},
+   606→            ],
+   607→            "language": "en-US",
+   608→            "duration_seconds": round(audio_minutes * 60),
+   609→            "model": "whisper-large-v3",
+   610→        }
+   611→
+   612→    if agent_id == "structuring":
+   613→        return {
+   614→            "document_type": "SOAP Note",
+   615→            "sections": [
+   616→                {
+   617→                    "title": "Subjective",
+   618→                    "body": (
+   619→                        f"Patient seen for {specialty.replace('_', ' ')} follow-up. "
+   620→                        "Reports improvement in symptoms since last visit with reduced "
+   621→                        "shortness of breath on exertion."
+   622→                    ),
+   623→                },
+   624→                {
+   625→                    "title": "Objective",
+   626→                    "body": (
+   627→                        "BP 132/84, HR 74 regular, RR 16, SpO2 97% on room air. "
+   628→                        "Lungs clear bilaterally. No murmurs, rubs or gallops."
+   629→                    ),
+   630→                },
+   631→                {
+   632→                    "title": "Assessment",
+   633→                    "body": (
+   634→                        "Stable cardiology patient with adequate symptom control on "
+   635→                        "current regimen. No acute findings on exam today."
+   636→                    ),
+   637→                },
+   638→                {
+   639→                    "title": "Plan",
+   640→                    "body": (
+   641→                        "Continue current medications. Reorder lipid panel and BMP "
+   642→                        "in three months. Follow up in six months."
+   643→                    ),
+   644→                },
+   645→            ],
+   646→            "extracted_entities": {
+   647→                "medications": [
+   648→                    {"name": "Lisinopril", "dose": "10 mg", "route": "PO", "frequency": "daily"},
+   649→                    {"name": "Atorvastatin", "dose": "20 mg", "route": "PO", "frequency": "nightly"},
+   650→                ],
+   651→                "allergies": [
+   652→                    {"substance": "Penicillin", "reaction": "rash", "severity": "mild"}
+   653→                ],
+   654→                "diagnoses": [
+   655→                    {"code": "I25.10", "system": "ICD-10", "description": "Atherosclerotic heart disease"}
+   656→                ],
+   657→                "vitals": [
+   658→                    {"name": "BP", "value": "132/84", "unit": "mmHg"},
+   659→                    {"name": "HR", "value": "74", "unit": "bpm"},
+   660→                    {"name": "SpO2", "value": "97", "unit": "%"},
+   661→                ],
+   662→            },
+   663→            "uncertain_markers": ["[INAUDIBLE]"],
+   664→        }
+   665→
+   666→    if agent_id == "qa":
+   667→        return {
+   668→            "quality_score": 88,
+   669→            "risk_score": 0.22,
+   670→            "severity": "medium",
+   671→            "findings": [
+   672→                {
+   673→                    "type": "medication_conflict",
+   674→                    "severity": "medium",
+   675→                    "detail": "Lisinopril dose discrepancy (10mg vs 20mg)",
+   676→                    "suggestion": "Confirm with provider",
+   677→                },
+   678→                {
+   679→                    "type": "laterality",
+   680→                    "severity": "low",
+   681→                    "detail": "left/right ambiguity in knee exam",
+   682→                    "suggestion": "Transcriptionist to clarify",
+   683→                },
+   684→            ],
+   685→            "recommended_action": "route_to_qa",
+   686→        }
+   687→
+   688→    if agent_id == "allocation":
+   689→        return {
+   690→            "assigned_user_id": "u_3",
+   691→            "assigned_user_name": "Priya Nair",
+   692→            "reason": (
+   693→                "Specialty=Cardiology match, shift active, workload 4/10, QA score 94"
+   694→            ),
+   695→            "fallback_queue": "unassigned_priority",
+   696→            "correlation_id": correlation_id,
+   697→        }
+   698→
+   699→    if agent_id == "sla":
+   700→        return {
+   701→            "jobs_at_risk": [
+   702→                {"job_id": "JOB-2024-004", "sla_pct": 0.78, "priority": "urgent"},
+   703→                {"job_id": "JOB-2024-001", "sla_pct": 0.65, "priority": "urgent"},
+   704→                {"job_id": "JOB-2024-007", "sla_pct": 0.92, "priority": "normal"},
+   705→            ],
+   706→            "escalation_triggered": 2,
+   707→        }
+   708→
+   709→    if agent_id == "delivery":
+   710→        return {
+   711→            "channel": "fhir_webhook",
+   712→            "destination_id": "dest_ehr_1",
+   713→            "status": "delivered",
+   714→            "response_code": 200,
+   715→            "latency_ms": 412,
+   716→            "retry_count": 0,
+   717→        }
+   718→
+   719→    if agent_id == "billing":
+   720→        return {
+   721→            "audio_minutes": round(audio_minutes, 2),
+   722→            "ai_minutes": round(audio_minutes, 2),
+   723→            "cost_usd": round(audio_minutes * 0.09, 2),
+   724→            "plan": "Professional",
+   725→            "remaining_minutes": 1245,
+   726→            "overage": False,
+   727→        }
+   728→
+   729→    if agent_id == "security":
+   730→        return {
+   731→            "alerts": [
+   732→                {
+   733→                    "type": "bulk_download",
+   734→                    "severity": "medium",
+   735→                    "user_id": "u_7",
+   736→                    "detail": "42 document downloads in 10 min",
+   737→                }
+   738→            ],
+   739→            "revoked_support_access": 1,
+   740→        }
+   741→
+   742→    if agent_id == "reporting":
+   743→        return {
+   744→            "report_id": f"rpt-{uuid.uuid4().hex[:8]}",
+   745→            "generated_at": _now_iso(),
+   746→            "format": "pdf",
+   747→            "s3_uri": "s3://medflow-reports/2024/09/turnaround-weekly.pdf",
+   748→            "rows": 1284,
+   749→        }
+   750→
+   751→    # Fallback (shouldn't happen because callers are validated upstream)
+   752→    return {"note": "no output defined"}
+   753→
+   754→
+   755→def _approx_cost_usd(agent_id: str, duration_ms: int) -> float:
+   756→    """Rough cost in USD for the simulated agent run."""
+   757→    # Whisper transcription is the priciest; rule-engine agents ~free.
+   758→    per_minute_cost = {
+   759→        "transcription": 0.09,
+   760→        "structuring": 0.06,
+   761→        "qa": 0.04,
+   762→        "intake-validation": 0.0,
+   763→        "allocation": 0.0,
+   764→        "sla": 0.0,
+   765→        "delivery": 0.0,
+   766→        "billing": 0.0,
+   767→        "security": 0.0,
+   768→        "reporting": 0.005,
+   769→    }.get(agent_id, 0.01)
+   770→    return round((duration_ms / 1000.0 / 60.0) * per_minute_cost, 4)
+   771→
+   772→
+   773→# =====================================================================
+   774→# Database connector catalogue
+   775→# =====================================================================
+   776→
+   777→DB_CONNECTORS: dict[str, dict[str, Any]] = {
+   778→    "sqlite": {
+   779→        "id": "sqlite",
+   780→        "label": "SQLite",
+   781→        "engine": "sqlite3",
+   782→        "color": "#0B5345",
+   783→        "supports": ["relational"],
+   784→        "connection_string_format": "file:./medflow.db",
+   785→        "status": "connected",
+   786→        "default": True,
+   787→        "notes": "Local dev & small clinics",
+   788→    },
+   789→    "postgres": {
+   790→        "id": "postgres",
+   791→        "label": "PostgreSQL",
+   792→        "engine": "psql",
+   793→        "color": "#1ABC9C",
+   794→        "supports": ["relational", "full-text", "jsonb"],
+   795→        "connection_string_format": "postgresql://user:pass@host:5432/db",
+   796→        "status": "available",
+   797→        "default": False,
+   798→        "notes": "Multi-tenant production",
+   799→    },
+   800→    "supabase": {
+   801→        "id": "supabase",
+   802→        "label": "Supabase",
+   803→        "engine": "postgres",
+   804→        "color": "#10B981",
+   805→        "supports": ["relational", "realtime", "auth", "storage"],
+   806→        "connection_string_format": "postgresql://postgres:[PROJECT-REF]@db.[project].supabase.co:5432/postgres",
+   807→        "status": "available",
+   808→        "default": False,
+   809→        "notes": "Postgres + realtime + auth",
+   810→    },
+   811→    "mysql": {
+   812→        "id": "mysql",
+   813→        "label": "MySQL",
+   814→        "engine": "mysql",
+   815→        "color": "#2980B9",
+   816→        "supports": ["relational"],
+   817→        "connection_string_format": "mysql://user:pass@host:3306/db",
+   818→        "status": "available",
+   819→        "default": False,
+   820→        "notes": "Legacy hospital systems",
+   821→    },
+   822→    "mongodb": {
+   823→        "id": "mongodb",
+   824→        "label": "MongoDB",
+   825→        "engine": "pymongo",
+   826→        "color": "#58D68D",
+   827→        "supports": ["document", "flexible-schema"],
+   828→        "connection_string_format": "mongodb+srv://user:pass@cluster/db",
+   829→        "status": "available",
+   830→        "default": False,
+   831→        "notes": "Unstructured clinical notes",
+   832→    },
+   833→}
+   834→
+   835→# Prisma-equivalent entity catalogue (mirrors the BPO schema decided in Task 1).
+   836→# These field/relation counts are approximate but consistent with the schema.
+   837→DB_SCHEMA_ENTITIES: list[dict[str, Any]] = [
+   838→    {"name": "Organization", "fields": 9, "relations": 4, "tenant_scoped": False},
+   839→    {"name": "User", "fields": 14, "relations": 5, "tenant_scoped": True},
+   840→    {"name": "Provider", "fields": 8, "relations": 3, "tenant_scoped": True},
+   841→    {"name": "Facility", "fields": 7, "relations": 2, "tenant_scoped": True},
+   842→    {"name": "Department", "fields": 5, "relations": 2, "tenant_scoped": True},
+   843→    {"name": "Specialty", "fields": 4, "relations": 1, "tenant_scoped": False},
+   844→    {"name": "DocumentTemplate", "fields": 8, "relations": 2, "tenant_scoped": True},
+   845→    {"name": "TranscriptionJob", "fields": 18, "relations": 7, "tenant_scoped": True},
+   846→    {"name": "JobEvent", "fields": 7, "relations": 1, "tenant_scoped": True},
+   847→    {"name": "Assignment", "fields": 9, "relations": 3, "tenant_scoped": True},
+   848→    {"name": "QualityReview", "fields": 8, "relations": 2, "tenant_scoped": True},
+   849→    {"name": "QualityFinding", "fields": 7, "relations": 1, "tenant_scoped": True},
+   850→    {"name": "ClarificationRequest", "fields": 6, "relations": 2, "tenant_scoped": True},
+   851→    {"name": "ClarificationMessage", "fields": 5, "relations": 1, "tenant_scoped": True},
+   852→    {"name": "AuditEvent", "fields": 9, "relations": 1, "tenant_scoped": True},
+   853→    {"name": "Subscription", "fields": 10, "relations": 1, "tenant_scoped": True},
+   854→    {"name": "UsageRecord", "fields": 7, "relations": 1, "tenant_scoped": True},
+   855→    {"name": "IntegrationConnection", "fields": 8, "relations": 2, "tenant_scoped": True},
+   856→    {"name": "DeliveryDestination", "fields": 8, "relations": 2, "tenant_scoped": True},
+   857→    {"name": "DataRetentionPolicy", "fields": 6, "relations": 1, "tenant_scoped": True},
+   858→]
+   859→
+   860→
+   861→# =====================================================================
+   862→# Integration adapter catalogue
+   863→# =====================================================================
+   864→
+   865→INTEGRATIONS: dict[str, dict[str, Any]] = {
+   866→    "epic": {
+   867→        "id": "epic",
+   868→        "label": "Epic EHR",
+   869→        "status": "available",
+   870→        "config_schema": {
+   871→            "type": "object",
+   872→            "required": ["base_url", "client_id", "client_secret"],
+   873→            "properties": {
+   874→                "base_url": {"type": "string", "format": "uri"},
+   875→                "client_id": {"type": "string"},
+   876→                "client_secret": {"type": "string"},
+   877→                "fhir_version": {"type": "string", "default": "r4"},
+   878→            },
+   879→        },
+   880→    },
+   881→    "cerner": {
+   882→        "id": "cerner",
+   883→        "label": "Cerner / Oracle Health",
+   884→        "status": "available",
+   885→        "config_schema": {
+   886→            "type": "object",
+   887→            "required": ["tenant_id", "base_url"],
+   888→            "properties": {
+   889→                "tenant_id": {"type": "string"},
+   890→                "base_url": {"type": "string", "format": "uri"},
+   891→                "fhir_version": {"type": "string", "default": "r4"},
+   892→            },
+   893→        },
+   894→    },
+   895→    "allscripts": {
+   896→        "id": "allscripts",
+   897→        "label": "Allscripts / Veradigm",
+   898→        "status": "available",
+   899→        "config_schema": {
+   900→            "type": "object",
+   901→            "required": ["base_url", "api_key"],
+   902→            "properties": {
+   903→                "base_url": {"type": "string", "format": "uri"},
+   904→                "api_key": {"type": "string"},
+   905→                "unit_id": {"type": "string"},
+   906→            },
+   907→        },
+   908→    },
+   909→    "athena": {
+   910→        "id": "athena",
+   911→        "label": "athenahealth",
+   912→        "status": "available",
+   913→        "config_schema": {
+   914→            "type": "object",
+   915→            "required": ["client_id", "client_secret", "practice_id"],
+   916→            "properties": {
+   917→                "client_id": {"type": "string"},
+   918→                "client_secret": {"type": "string"},
+   919→                "practice_id": {"type": "string"},
+   920→                "version": {"type": "string", "default": "preview1"},
+   921→            },
+   922→        },
+   923→    },
+   924→    "sftp": {
+   925→        "id": "sftp",
+   926→        "label": "SFTP (B2B)",
+   927→        "status": "available",
+   928→        "config_schema": {
+   929→            "type": "object",
+   930→            "required": ["host", "username", "private_key_path"],
+   931→            "properties": {
+   932→                "host": {"type": "string"},
+   933→                "port": {"type": "integer", "default": 22},
+   934→                "username": {"type": "string"},
+   935→                "private_key_path": {"type": "string"},
+   936→                "remote_dir": {"type": "string", "default": "/inbound"},
+   937→            },
+   938→        },
+   939→    },
+   940→    "rest_webhook": {
+   941→        "id": "rest_webhook",
+   942→        "label": "REST Webhook",
+   943→        "status": "available",
+   944→        "config_schema": {
+   945→            "type": "object",
+   946→            "required": ["url", "auth_header_name", "auth_header_value"],
+   947→            "properties": {
+   948→                "url": {"type": "string", "format": "uri"},
+   949→                "method": {"type": "string", "default": "POST"},
+   950→                "auth_header_name": {"type": "string"},
+   951→                "auth_header_value": {"type": "string"},
+   952→                "retry_policy": {"type": "string", "default": "exponential_backoff"},
+   953→            },
+   954→        },
+   955→    },
+   956→    "hl7_fhir": {
+   957→        "id": "hl7_fhir",
+   958→        "label": "HL7 FHIR R4",
+   959→        "status": "available",
+   960→        "config_schema": {
+   961→            "type": "object",
+   962→            "required": ["base_url"],
+   963→            "properties": {
+   964→                "base_url": {"type": "string", "format": "uri"},
+   965→                "fhir_version": {"type": "string", "default": "r4"},
+   966→                "bearer_token": {"type": "string"},
+   967→            },
+   968→        },
+   969→    },
+   970→    "hl7_v2": {
+   971→        "id": "hl7_v2",
+   972→        "label": "HL7 v2 (MLLP)",
+   973→        "status": "available",
+   974→        "config_schema": {
+   975→            "type": "object",
+   976→            "required": ["host", "port"],
+   977→            "properties": {
+   978→                "host": {"type": "string"},
+   979→                "port": {"type": "integer", "default": 2575},
+   980→                "message_type": {"type": "string", "default": "MDM^T02"},
+   981→                "ack_timeout_ms": {"type": "integer", "default": 10000},
+   982→            },
+   983→        },
+   984→    },
+   985→}
+   986→
+   987→
+   988→# =====================================================================
+   989→# FastAPI app + middleware
+   990→# =====================================================================
+   991→
+   992→app = FastAPI(
+   993→    title="MedFlow Transcribe AI — AI Agent Orchestration Service",
+   994→    description=(
+   995→        "FastAPI backend for the MedFlow Transcribe AI Medical Transcription BPO "
+   996→        "SaaS. Exposes 10 AI agents, multi-DB connectors (SQLite/Postgres/Supabase/"
+   997→        "MySQL/MongoDB), and synthetic FHIR R4 / HL7 v2.5 export endpoints. "
+   998→        "Called by the Next.js frontend through the Caddy gateway via "
+   999→        "`?XTransformPort=8000`."
+  1000→    ),
+  1001→    version=SERVICE_VERSION,
+  1002→    docs_url="/docs",
+  1003→    redoc_url="/redoc",
+  1004→)
+  1005→
+  1006→# CORS — allow all origins so the Caddy-gateway-proxied requests work.
+  1007→app.add_middleware(
+  1008→    CORSMiddleware,
+  1009→    allow_origins=["*"],
+  1010→    allow_credentials=False,
+  1011→    allow_methods=["*"],
+  1012→    allow_headers=["*"],
+  1013→)
+  1014→
+  1015→
+  1016→@app.on_event("startup")
+  1017→async def _startup_event() -> None:
+  1018→    """Log startup banner."""
+  1019→    logger.info(
+  1020→        "🚀 FastAPI AI Agents service starting on :8000 — Swagger at /docs"
+  1021→    )
+  1022→
+  1023→
+  1024→# Custom 500 handler — return a JSON envelope with a correlation id so the
+  1025→# frontend can show the user an actionable trace id.
+  1026→@app.exception_handler(Exception)
+  1027→async def _unhandled_exception_handler(request: Request, exc: Exception) -> Any:
+  1028→    correlation_id = _generate_correlation_id()
+  1029→    logger.exception("Unhandled error (correlation_id=%s): %s", correlation_id, exc)
+  1030→    return _json_error(
+  1031→        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+  1032→        error="internal_server_error",
+  1033→        message=str(exc),
+  1034→        correlation_id=correlation_id,
+  1035→    )
+  1036→
+  1037→
+  1038→def _json_error(status_code: int, error: str, message: str, correlation_id: str) -> Any:
+  1039→    """Build a JSON error response envelope."""
+  1040→    from fastapi.responses import JSONResponse
+  1041→
+  1042→    return JSONResponse(
+  1043→        status_code=status_code,
+  1044→        content={
+  1045→            "error": error,
+  1046→            "message": message,
+  1047→            "correlation_id": correlation_id,
+  1048→        },
+  1049→    )
+  1050→
+  1051→
+  1052→# =====================================================================
+  1053→# Root / landing
+  1054→# =====================================================================
+  1055→
+  1056→
+  1057→@app.get("/", response_class=HTMLResponse)
+  1058→async def root() -> HTMLResponse:
+  1059→    """Landing page describing the service."""
+  1060→    html = f"""
+  1061→    <!DOCTYPE html>
+  1062→    <html lang="en">
+  1063→    <head>
+  1064→        <meta charset="utf-8" />
+  1065→        <meta name="viewport" content="width=device-width, initial-scale=1" />
+  1066→        <title>MedFlow Transcribe AI — AI Agent Orchestration Service</title>
+  1067→        <style>
+  1068→            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  1069→                    background: #E8F8F5; color: #17202A; margin: 0; padding: 48px 24px; }}
+  1070→            .wrap {{ max-width: 880px; margin: 0 auto; }}
+  1071→            h1 {{ color: #0B5345; font-size: 32px; margin-bottom: 8px; }}
+  1072→            p.subtitle {{ color: #1ABC9C; font-size: 16px; margin-top: 0; }}
+  1073→            .card {{ background: #fff; border-radius: 12px; padding: 24px;
+  1074→                     box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-top: 24px; }}
+  1075→            .card h2 {{ color: #0B5345; margin-top: 0; font-size: 20px; }}
+  1076→            .links {{ display: grid; gap: 8px; margin-top: 12px; }}
+  1077→            .links a {{ color: #1ABC9C; text-decoration: none; font-weight: 600; }}
+  1078→            .links a:hover {{ text-decoration: underline; }}
+  1079→            .pill {{ display: inline-block; background: #0B5345; color: #fff;
+  1080→                     padding: 2px 8px; border-radius: 6px; font-size: 12px; }}
+  1081→            code {{ background: #f1f5f9; padding: 1px 6px; border-radius: 4px; }}
+  1082→        </style>
+  1083→    </head>
+  1084→    <body>
+  1085→        <div class="wrap">
+  1086→            <h1>MedFlow Transcribe AI</h1>
+  1087→            <p class="subtitle">
+  1088→                AI Agent Orchestration &amp; Multi-Database Connector Service (FastAPI)
+  1089→                <span class="pill">v{SERVICE_VERSION}</span>
+  1090→            </p>
+  1091→            <div class="card">
+  1092→                <h2>What this service does</h2>
+  1093→                <ul>
+  1094→                    <li>Orchestrates <strong>10 AI agents</strong> (intake → reporting).</li>
+  1095→                    <li>Abstracts <strong>multi-DB connectors</strong> (SQLite, PostgreSQL,
+  1096→                        Supabase, MySQL, MongoDB).</li>
+  1097→                    <li>Generates synthetic <strong>FHIR R4</strong> &amp; <strong>HL7 v2.5</strong> payloads.</li>
+  1098→                    <li>Catalogues <strong>EHR integrations</strong> (Epic, Cerner, Allscripts, athena, SFTP, REST, HL7).</li>
+  1099→                </ul>
+  1100→            </div>
+  1101→            <div class="card">
+  1102→                <h2>Quick links</h2>
+  1103→                <div class="links">
+  1104→                    <a href="/docs">📘 FastAPI Swagger docs (/docs)</a>
+  1105→                    <a href="/redoc">📕 ReDoc (/redoc)</a>
+  1106→                    <a href="/api/health">🩺 Health check (/api/health)</a>
+  1107→                    <a href="/api/agents">🤖 Agents list (/api/agents)</a>
+  1108→                    <a href="/api/db/connectors">🗄️ DB connectors (/api/db/connectors)</a>
+  1109→                    <a href="/api/fhir/JOB-2024-001">📋 FHIR sample (/api/fhir/JOB-2024-001)</a>
+  1110→                </div>
+  1111→            </div>
+  1112→            <div class="card">
+  1113→                <h2>How the Next.js frontend calls this</h2>
+  1114→                <p>
+  1115→                    Frontend fetches use a <em>relative</em> URL with
+  1116→                    <code>?XTransformPort=8000</code> — the Caddy gateway strips
+  1117→                    the query and forwards to <code>localhost:8000</code>.
+  1118→                </p>
+  1119→                <pre><code>fetch('/api/agents?XTransformPort=8000')</code></pre>
+  1120→            </div>
+  1121→        </div>
+  1122→    </body>
+  1123→    </html>
+  1124→    """
+  1125→    return HTMLResponse(html)
+  1126→
+  1127→
+  1128→# =====================================================================
+  1129→# Health
+  1130→# =====================================================================
+  1131→
+  1132→
+  1133→@app.get("/api/health")
+  1134→async def health() -> dict[str, Any]:
+  1135→    """Liveness / readiness probe."""
+  1136→    return {
+  1137→        "status": "ok",
+  1138→        "service": SERVICE_NAME,
+  1139→        "version": SERVICE_VERSION,
+  1140→        "timestamp": _now_iso(),
+  1141→        "agents_active": sum(
+  1142→            1 for a in AGENTS.values() if a["status"] == "running"
+  1143→        ),
+  1144→    }
+  1145→
+  1146→
+  1147→# =====================================================================
+  1148→# AI Agents
+  1149→# =====================================================================
+  1150→
+  1151→
+  1152→@app.get("/api/agents")
+  1153→async def list_agents() -> dict[str, Any]:
+  1154→    """List all 10 AI agents (lightweight summary fields)."""
+  1155→    return {
+  1156→        "agents": [_summarize_agent(AGENTS[aid]) for aid in AGENT_ORDER],
+  1157→        "count": len(AGENT_ORDER),
+  1158→    }
+  1159→
+  1160→
+  1161→@app.get("/api/agents/{agent_id}")
+  1162→async def get_agent(agent_id: str) -> dict[str, Any]:
+  1163→    """Full detail of one agent including the last 5 runs."""
+  1164→    if agent_id not in AGENTS:
+  1165→        raise HTTPException(
+  1166→            status_code=404,
+  1167→            detail={
+  1168→                "error": "not_found",
+  1169→                "message": f"Unknown agent_id '{agent_id}'",
+  1170→                "correlation_id": _generate_correlation_id(),
+  1171→            },
+  1172→        )
+  1173→    a = AGENTS[agent_id]
+  1174→    detail = _summarize_agent(a)
+  1175→    detail["recent_runs"] = a["recent_runs"][-5:]
+  1176→    return detail
+  1177→
+  1178→
+  1179→@app.post("/api/agents/{agent_id}/run")
+  1180→async def run_agent(agent_id: str, body: AgentRunRequest) -> dict[str, Any]:
+  1181→    """
+  1182→    Simulate running an agent on a job. Sets the agent to `running`,
+  1183→    sleeps 600-1500ms (simulated work), then produces a realistic,
+  1184→    agent-type-specific output and records the run.
+  1185→    """
+  1186→    if agent_id not in AGENTS:
+  1187→        raise HTTPException(
+  1188→            status_code=404,
+  1189→            detail={
+  1190→                "error": "not_found",
+  1191→                "message": f"Unknown agent_id '{agent_id}'",
+  1192→                "correlation_id": _generate_correlation_id(),
+  1193→            },
+  1194→        )
+  1195→
+  1196→    agent = AGENTS[agent_id]
+  1197→    correlation_id = body.correlation_id or _generate_correlation_id()
+  1198→    started_at = _now_iso()
+  1199→
+  1200→    # Flip status to running.
+  1201→    agent["status"] = "running"
+  1202→
+  1203→    # Simulate latency between 600 and 1500 ms.
+  1204→    duration_ms = random.randint(600, 1500)
+  1205→    await asyncio.sleep(duration_ms / 1000.0)
+  1206→
+  1207→    # ~5% chance of a simulated failure (with retry suggestion) — mostly succeed.
+  1208→    # Skip failure chance for rule-engine agents on the seeded jobs to keep the
+  1209→    # demo deterministic for the curl verification (transcription always succeeds).
+  1210→    simulate_fail = (
+  1211→        random.random() < 0.05
+  1212→        and agent_id not in ("transcription",)
+  1213→        and body.job_id in SEED_JOBS
+  1214→    )
+  1215→
+  1216→    completed_at = _now_iso()
+  1217→    cost_usd = _approx_cost_usd(agent_id, duration_ms)
+  1218→
+  1219→    if simulate_fail:
+  1220→        # Failed run — increment failure count, append to recent_runs, do NOT
+  1221→        # produce a typed output (return a failure envelope).
+  1222→        agent["status"] = "failed"
+  1223→        agent["failure_count"] += 1
+  1224→        run_record = {
+  1225→            "agent_id": agent_id,
+  1226→            "job_id": body.job_id,
+  1227→            "tenant_id": body.tenant_id,
+  1228→            "correlation_id": correlation_id,
+  1229→            "run_id": f"run-{uuid.uuid4().hex[:10]}",
+  1230→            "status": "failed",
+  1231→            "started_at": started_at,
+  1232→            "completed_at": completed_at,
+  1233→            "duration_ms": duration_ms,
+  1234→            "cost_usd": cost_usd,
+  1235→            "model": agent["model"],
+  1236→            "prompt_version": agent["prompt_version"],
+  1237→            "error": "Simulated transient failure",
+  1238→            "retry_recommended": True,
+  1239→        }
+  1240→    else:
+  1241→        # Success path — produce typed output, update agent counters.
+  1242→        output = _agent_output(agent_id, body.job_id, correlation_id)
+  1243→        agent["status"] = "succeeded"
+  1244→        agent["success_count"] += 1
+  1245→        agent["last_run_at"] = completed_at
+  1246→        agent["last_duration_ms"] = duration_ms
+  1247→        agent["last_cost_usd"] = cost_usd
+  1248→        run_record = {
+  1249→            "agent_id": agent_id,
+  1250→            "job_id": body.job_id,
+  1251→            "tenant_id": body.tenant_id,
+  1252→            "correlation_id": correlation_id,
+  1253→            "run_id": f"run-{uuid.uuid4().hex[:10]}",
+  1254→            "status": "succeeded",
+  1255→            "started_at": started_at,
+  1256→            "completed_at": completed_at,
+  1257→            "duration_ms": duration_ms,
+  1258→            "cost_usd": cost_usd,
+  1259→            "model": agent["model"],
+  1260→            "prompt_version": agent["prompt_version"],
+  1261→            "output": output,
+  1262→        }
+  1263→
+  1264→    # Update agent's recent_runs (cap 5 for the per-agent list).
+  1265→    agent["recent_runs"].append(
+  1266→        {
+  1267→            "job_id": body.job_id,
+  1268→            "status": run_record["status"],
+  1269→            "duration_ms": duration_ms,
+  1270→            "cost_usd": cost_usd,
+  1271→            "timestamp": completed_at,
+  1272→            "correlation_id": correlation_id,
+  1273→        }
+  1274→    )
+  1275→    agent["recent_runs"] = agent["recent_runs"][-5:]
+  1276→
+  1277→    # Update the global RUNS log (cap 100).
+  1278→    RUNS.append(run_record)
+  1279→    if len(RUNS) > 100:
+  1280→        del RUNS[: len(RUNS) - 100]
+  1281→
+  1282→    # Reset agent status to idle once the run is done (so the next call starts fresh).
+  1283→    agent["status"] = "failed" if simulate_fail else "idle"
+  1284→    # But mark the most recent outcome via last_run fields — kept above.
+  1285→
+  1286→    logger.info(
+  1287→        "agent run complete agent=%s job=%s status=%s duration_ms=%s",
+  1288→        agent_id,
+  1289→        body.job_id,
+  1290→        run_record["status"],
+  1291→        duration_ms,
+  1292→    )
+  1293→
+  1294→    return run_record
+  1295→
+  1296→
+  1297→@app.get("/api/agents/runs")
+  1298→async def list_runs(limit: int = 20) -> dict[str, Any]:
+  1299→    """Recent agent runs across all agents (capped at the requested limit)."""
+  1300→    capped = max(1, min(limit, 100))
+  1301→    return {
+  1302→        "runs": list(reversed(RUNS))[:capped],
+  1303→        "count": len(RUNS),
+  1304→        "returned": min(capped, len(RUNS)),
+  1305→    }
+  1306→
+  1307→
+  1308→# =====================================================================
+  1309→# Multi-database connectors
+  1310→# =====================================================================
+  1311→
+  1312→
+  1313→@app.get("/api/db/connectors")
+  1314→async def list_db_connectors() -> dict[str, Any]:
+  1315→    """List supported DB backends with metadata."""
+  1316→    return {
+  1317→        "connectors": [DB_CONNECTORS[k] for k in DB_CONNECTORS],
+  1318→        "count": len(DB_CONNECTORS),
+  1319→        "active_connector": ACTIVE_DB_CONNECTOR,
+  1320→    }
+  1321→
+  1322→
+  1323→@app.post("/api/db/connectors/test")
+  1324→async def test_db_connector(body: DBTestRequest) -> dict[str, Any]:
+  1325→    """
+  1326→    Simulate connection-string validation.
+  1327→      • sqlite  → always succeed
+  1328→      • others  → if connection_string contains the substring 'fail', fail;
+  1329→                  otherwise succeed with random latency 80-300ms.
+  1330→    """
+  1331→    connector_id = body.connector
+  1332→    if connector_id not in DB_CONNECTORS:
+  1333→        raise HTTPException(
+  1334→            status_code=422,
+  1335→            detail={
+  1336→                "error": "unknown_connector",
+  1337→                "message": (
+  1338→                    f"Unknown connector '{connector_id}'. "
+  1339→                    f"Supported: {list(DB_CONNECTORS.keys())}"
+  1340→                ),
+  1341→                "correlation_id": _generate_correlation_id(),
+  1342→            },
+  1343→        )
+  1344→
+  1345→    tested_at = _now_iso()
+  1346→
+  1347→    if connector_id == "sqlite":
+  1348→        # sqlite always works in the demo environment.
+  1349→        return {
+  1350→            "connector": connector_id,
+  1351→            "status": "ok",
+  1352→            "latency_ms": random.randint(2, 12),
+  1353→            "validation_errors": [],
+  1354→            "tested_at": tested_at,
+  1355→            "recommendation": (
+  1356→                "Connection verified. SQLite is the active default backend."
+  1357→            ),
+  1358→        }
+  1359→
+  1360→    # Simulate latency for remote backends.
+  1361→    latency_ms = random.randint(80, 300)
+  1362→    await asyncio.sleep(latency_ms / 1000.0)
+  1363→
+  1364→    if "fail" in body.connection_string.lower():
+  1365→        return {
+  1366→            "connector": connector_id,
+  1367→            "status": "failed",
+  1368→            "latency_ms": latency_ms,
+  1369→            "validation_errors": [
+  1370→                "host_unreachable",
+  1371→                "auth_rejected",
+  1372→            ],
+  1373→            "tested_at": tested_at,
+  1374→            "recommendation": (
+  1375→                "Verify credentials, network ACL, and that the host is reachable "
+  1376→                "from the MedFlow VPC. Consider switching to a failover backend."
+  1377→            ),
+  1378→        }
+  1379→
+  1380→    return {
+  1381→        "connector": connector_id,
+  1382→        "status": "ok",
+  1383→        "latency_ms": latency_ms,
+  1384→        "validation_errors": [],
+  1385→        "tested_at": tested_at,
+  1386→        "recommendation": (
+  1387→            f"Connection verified. {DB_CONNECTORS[connector_id]['label']} "
+  1388→            "is ready to be promoted to the active backend."
+  1389→        ),
+  1390→    }
+  1391→
+  1392→
+  1393→@app.post("/api/db/connectors/{connector}/switch")
+  1394→async def switch_db_connector(connector: str, body: DBSwitchRequest) -> dict[str, Any]:
+  1395→    """
+  1396→    Simulate promoting a connector to the active backend.
+  1397→    For sqlite, always works. For others, simulate a migration with a
+  1398→    deterministic count of migrated tables.
+  1399→    """
+  1400→    global ACTIVE_DB_CONNECTOR
+  1401→
+  1402→    if connector not in DB_CONNECTORS:
+  1403→        raise HTTPException(
+  1404→            status_code=422,
+  1405→            detail={
+  1406→                "error": "unknown_connector",
+  1407→                "message": (
+  1408→                    f"Unknown connector '{connector}'. "
+  1409→                    f"Supported: {list(DB_CONNECTORS.keys())}"
+  1410→                ),
+  1411→                "correlation_id": _generate_correlation_id(),
+  1412→            },
+  1413→        )
+  1414→
+  1415→    if connector != "sqlite" and "fail" in body.connection_string.lower():
+  1416→        raise HTTPException(
+  1417→            status_code=400,
+  1418→            detail={
+  1419→                "error": "switch_failed",
+  1420→                "message": "Connection test failed — cannot switch backend.",
+  1421→                "correlation_id": _generate_correlation_id(),
+  1422→            },
+  1423→        )
+  1424→
+  1425→    previous = ACTIVE_DB_CONNECTOR
+  1426→    ACTIVE_DB_CONNECTOR = connector
+  1427→
+  1428→    # Reflect status changes in the catalogue.
+  1429→    for cid, meta in DB_CONNECTORS.items():
+  1430→        meta["status"] = "connected" if cid == connector else "available"
+  1431→
+  1432→    migrated_tables = (
+  1433→        0
+  1434→        if connector == "sqlite" and previous == "sqlite"
+  1435→        else random.randint(15, 25)
+  1436→    )
+  1437→
+  1438→    return {
+  1439→        "previous_connector": previous,
+  1440→        "active_connector": ACTIVE_DB_CONNECTOR,
+  1441→        "switched_at": _now_iso(),
+  1442→        "migrated_tables": migrated_tables,
+  1443→        "status": "ok",
+  1444→    }
+  1445→
+  1446→
+  1447→@app.get("/api/db/schema")
+  1448→async def get_db_schema() -> dict[str, Any]:
+  1449→    """Return Prisma-equivalent entity list with field counts (mirrors BPO schema)."""
+  1450→    return {
+  1451→        "entities": DB_SCHEMA_ENTITIES,
+  1452→        "count": len(DB_SCHEMA_ENTITIES),
+  1453→        "active_connector": ACTIVE_DB_CONNECTOR,
+  1454→    }
+  1455→
+  1456→
+  1457→# =====================================================================
+  1458→# FHIR & HL7 export
+  1459→# =====================================================================
+  1460→
+  1461→
+  1462→@app.get("/api/fhir/{job_id}")
+  1463→async def get_fhir(job_id: str) -> dict[str, Any]:
+  1464→    """
+  1465→    Return a realistic FHIR R4 Bundle containing a DocumentReference plus
+  1466→    placeholder Practitioner and Patient resources. All data is SYNTHETIC
+  1467→    (marked with meta.security = SYNTHETIC).
+  1468→    """
+  1469→    job = SEED_JOBS.get(job_id)
+  1470→    if not job:
+  1471→        raise HTTPException(
+  1472→            status_code=404,
+  1473→            detail={
+  1474→                "error": "not_found",
+  1475→                "message": f"Unknown job_id '{job_id}'",
+  1476→                "correlation_id": _generate_correlation_id(),
+  1477→            },
+  1478→        )
+  1479→
+  1480→    patient = job["patient"]
+  1481→    provider = job["provider"]
+  1482→    encounter = job["encounter"]
+  1483→
+  1484→    # Build a FHIR R4 Bundle (collection).
+  1485→    bundle = {
+  1486→        "resourceType": "Bundle",
+  1487→        "id": f"bundle-{uuid.uuid4().hex[:12]}",
+  1488→        "type": "collection",
+  1489→        "meta": {
+  1490→            "lastUpdated": _now_iso(),
+  1491→            "security": [{"code": "SYNTHETIC", "system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality"}],
+  1492→        },
+  1493→        "entry": [
+  1494→            {
+  1495→                "fullUrl": f"urn:uuid:{uuid.uuid4()}",
+  1496→                "resource": {
+  1497→                    "resourceType": "Patient",
+  1498→                    "id": patient["mrn"],
+  1499→                    "meta": {
+  1500→                        "security": [{"code": "SYNTHETIC"}],
+  1501→                    },
+  1502→                    "identifier": [
+  1503→                        {
+  1504→                            "system": "http://medflow.local/mrn",
+  1505→                            "value": patient["mrn"],
+  1506→                        }
+  1507→                    ],
+  1508→                    "name": [{"family": patient["name"].split()[-1],
+  1509→                              "given": patient["name"].split()[1:-1] or ["Synthetic"]}],
+  1510→                    "gender": patient["gender"],
+  1511→                    "birthDate": patient["dob"],
+  1512→                },
+  1513→            },
+  1514→            {
+  1515→                "fullUrl": f"urn:uuid:{uuid.uuid4()}",
+  1516→                "resource": {
+  1517→                    "resourceType": "Practitioner",
+  1518→                    "id": provider["npi"],
+  1519→                    "meta": {
+  1520→                        "security": [{"code": "SYNTHETIC"}],
+  1521→                    },
+  1522→                    "identifier": [
+  1523→                        {
+  1524→                            "system": "http://hl7.org/fhir/sid/us-npi",
+  1525→                            "value": provider["npi"],
+  1526→                        }
+  1527→                    ],
+  1528→                    "name": [{"text": provider["name"]}],
+  1529→                },
+  1530→            },
+  1531→            {
+  1532→                "fullUrl": f"urn:uuid:{uuid.uuid4()}",
+  1533→                "resource": {
+  1534→                    "resourceType": "DocumentReference",
+  1535→                    "id": f"docref-{job_id}",
+  1536→                    "meta": {
+  1537→                        "security": [{"code": "SYNTHETIC"}],
+  1538→                        "versionId": "1",
+  1539→                        "lastUpdated": _now_iso(),
+  1540→                    },
+  1541→                    "identifier": [
+  1542→                        {
+  1543→                            "system": "http://medflow.local/job",
+  1544→                            "value": job_id,
+  1545→                        }
+  1546→                    ],
+  1547→                    "status": "current",
+  1548→                    "type": {
+  1549→                        "coding": [
+  1550→                            {
+  1551→                                "system": "http://loinc.org",
+  1552→                                "code": "11506-3",
+  1553→                                "display": "Progress note",
+  1554→                            }
+  1555→                        ]
+  1556→                    },
+  1557→                    "category": [
+  1558→                        {
+  1559→                            "coding": [
+  1560→                                {
+  1561→                                    "system": "http://hl7.org/fhir/us/core/CodeSystem/us-core-documentreference-category",
+  1562→                                    "code": "clinical-note",
+  1563→                                    "display": "Clinical Note",
+  1564→                                }
+  1565→                            ],
+  1566→                        }
+  1567→                    ],
+  1568→                    "subject": {
+  1569→                        "reference": f"Patient/{patient['mrn']}",
+  1570→                        "display": patient["name"],
+  1571→                    },
+  1572→                    "author": [
+  1573→                        {
+  1574→                            "reference": f"Practitioner/{provider['npi']}",
+  1575→                            "display": provider["name"],
+  1576→                        }
+  1577→                    ],
+  1578→                    "created": _now_iso(),
+  1579→                    "context": {
+  1580→                        "period": {
+  1581→                            "start": encounter["date"] + "T09:00:00Z",
+  1582→                            "end": encounter["date"] + "T09:30:00Z",
+  1583→                        },
+  1584→                    },
+  1585→                    "content": [
+  1586→                        {
+  1587→                            "attachment": {
+  1588→                                "contentType": "text/plain",
+  1589→                                "language": "en-US",
+  1590→                                "title": f"{encounter['type'].replace('_', ' ').title()} — {encounter['facility']}",
+  1591→                                "data": (
+  1592→                                    "U0Q6IFBhdGllbnQgc2VlbiBmb3IgZm9sbG93LXVwLiBiaXJ0aGRhdGUg"
+  1593→                                    "c3ludGhldGljLiBSZXBvcnRzIGltcHJvdmVtZW50Lg=="
+  1594→                                ),
+  1595→                            }
+  1596→                        }
+  1597→                    ],
+  1598→                    "description": (
+  1599→                        f"Synthetic clinical note for {encounter['type']} at "
+  1600→                        f"{encounter['facility']} ({encounter['department']})."
+  1601→                    ),
+  1602→                },
+  1603→            },
+  1604→        ],
+  1605→    }
+  1606→
+  1607→    return {
+  1608→        "job_id": job_id,
+  1609→        "fhir_version": "r4",
+  1610→        "generated_at": _now_iso(),
+  1611→        "synthetic": True,
+  1612→        "bundle": bundle,
+  1613→    }
+  1614→
+  1615→
+  1616→@app.get("/api/hl7/{job_id}", response_class=PlainTextResponse)
+  1617→async def get_hl7(job_id: str) -> PlainTextResponse:
+  1618→    """
+  1619→    Return a realistic HL7 v2.5 MDM^T02 message as plain text.
+  1620→    Segments: MSH, PID, PV1, TXA, OBX.
+  1621→    All patient data is synthetic (MRN prefix SYN-).
+  1622→    """
+  1623→    job = SEED_JOBS.get(job_id)
+  1624→    if not job:
+  1625→        raise HTTPException(
+  1626→            status_code=404,
+  1627→            detail={
+  1628→                "error": "not_found",
+  1629→                "message": f"Unknown job_id '{job_id}'",
+  1630→                "correlation_id": _generate_correlation_id(),
+  1631→            },
+  1632→        )
+  1633→
+  1634→    patient = job["patient"]
+  1635→    provider = job["provider"]
+  1636→    encounter = job["encounter"]
+  1637→
+  1638→    now = datetime.now(timezone.utc)
+  1639→    ts_hl7 = now.strftime("%Y%m%d%H%M%S")
+  1640→    msg_control_id = f"MF{now.strftime('%H%M%S')}{random.randint(100,999)}"
+  1641→
+  1642→    # HL7 v2.5 uses | as the field separator (after MSH).
+  1643→    # MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|YYYYMMDDHHMMSS||MDM^T02|...
+  1644→    family = patient["name"].split()[-1]
+  1645→    given = patient["name"].split()[1] if len(patient["name"].split()) > 1 else "Synthetic"
+  1646→
+  1647→    lines = [
+  1648→        f"MSH|^~\\&|MedFlow|{encounter['facility']}|EHR_INBOUND|EHR_FACILITY|{ts_hl7}||MDM^T02|{msg_control_id}|P|2.5|||||||||SYNTHETIC",
+  1649→        f"PID|1||{patient['mrn']}^^^MedFlow^MRN||{family}^{given}||{patient['dob']}|{patient['gender'][0].upper()}",
+  1650→        f"PV1|1|O|{encounter['facility']}^Cardiology^Bed1||||{provider['name']}"
+  1651→        f"^^{provider['npi']}||||||||OP||||||||||||||||||||{encounter['date'].replace('-', '')}",
+  1652→        f"TXA|1|OP|^Progress Note||{ts_hl7}||||{provider['name']}^{provider['npi']}|{encounter['date'].replace('-', '')}|||||AV|||SYNTHETIC",
+  1653→        "OBX|1|TX|^Transcript||"
+  1654→        "Patient seen for follow-up. Reports improvement in symptoms since last visit. "
+  1655→        "BP 132/84, HR 74 regular, RR 16, SpO2 97% on room air. Lungs clear bilaterally. "
+  1656→        "No murmurs, rubs, or gallops. Plan: continue current medications, reorder labs "
+  1657→        "in three months.||||||F",
+  1658→        "OBX|2|TX|^Assessment and Plan||"
+  1659→        "Stable cardiology patient with adequate symptom control on current regimen. "
+  1660→        "No acute findings. Follow up in six months.||||||F",
+  1661→    ]
+  1662→    return PlainTextResponse("\r\n".join(lines), media_type="text/plain")
+  1663→
+  1664→
+  1665→# =====================================================================
+  1666→# EHR / integrations
+  1667→# =====================================================================
+  1668→
+  1669→
+  1670→@app.get("/api/integrations")
+  1671→async def list_integrations() -> dict[str, Any]:
+  1672→    """List integration adapter types with status and JSON-Schema config schema."""
+  1673→    return {
+  1674→        "integrations": [INTEGRATIONS[k] for k in INTEGRATIONS],
+  1675→        "count": len(INTEGRATIONS),
+  1676→    }
+  1677→
+  1678→
+  1679→# =====================================================================
+  1680→# Local entry point (when run via `python3 main.py`)
+  1681→# =====================================================================
+  1682→
+  1683→if __name__ == "__main__":
+  1684→    import uvicorn
+  1685→
+  1686→    uvicorn.run(
+  1687→        "main:app",
+  1688→        host="0.0.0.0",
+  1689→        port=8000,
+  1690→        reload=True,
+  1691→        log_level="info",
+  1692→    )
+  1693→

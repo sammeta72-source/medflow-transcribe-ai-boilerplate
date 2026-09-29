@@ -29,6 +29,11 @@ export type Permission =
   | "section.audit"
   | "section.settings"
   | "section.rbac" // the Roles & Permissions panel itself
+  // New additive sections (Task 11)
+  | "section.copilot"
+  | "section.compliance"
+  | "section.client-portal"
+  | "section.mobile-app"
   // Workflow actions
   | "action.upload_dictation"
   | "action.assign"
@@ -77,6 +82,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "section.clarifications","section.quality","section.templates","section.analytics",
     "section.agents","section.integrations","section.team","section.billing","section.audit",
     "section.settings","section.rbac",
+    "section.copilot","section.compliance","section.client-portal","section.mobile-app",
     "action.upload_dictation","action.assign","action.reassign","action.advance_workflow",
     "action.run_ai_agent","action.request_clarification","action.resolve_clarification",
     "action.qa_review","action.qa_reject","action.provider_approve","action.provider_sign",
@@ -88,6 +94,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "section.overview","section.jobs","section.queue","section.documents",
     "section.clarifications","section.quality","section.analytics","section.agents",
     "section.team","section.audit",
+    "section.copilot","section.compliance","section.client-portal",
     "action.assign","action.reassign","action.advance_workflow","action.run_ai_agent",
     "action.request_clarification","action.resolve_clarification","action.qa_review",
     "action.escalate","action.cancel_job","action.view_audit","action.export_data",
@@ -95,18 +102,21 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   Provider: [
     "section.overview","section.jobs","section.queue","section.upload","section.documents",
     "section.clarifications","section.quality","section.analytics",
+    "section.mobile-app",
     "action.upload_dictation","action.request_clarification","action.provider_approve",
     "action.provider_sign","action.advance_workflow",
   ],
   "Onsite Coordinator": [
     "section.overview","section.jobs","section.queue","section.clarifications",
     "section.quality","section.analytics","section.agents",
+    "section.copilot","section.client-portal",
     "action.assign","action.reassign","action.advance_workflow","action.run_ai_agent",
     "action.request_clarification","action.resolve_clarification","action.escalate",
   ],
   "Offshore Delivery Manager": [
     "section.overview","section.jobs","section.queue","section.quality",
     "section.analytics","section.agents","section.team",
+    "section.copilot","section.compliance","section.mobile-app",
     "action.assign","action.reassign","action.advance_workflow","action.run_ai_agent",
     "action.qa_review","action.escalate","action.export_data",
   ],
@@ -122,6 +132,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   "QA Analyst": [
     "section.overview","section.jobs","section.queue","section.quality","section.analytics",
+    "section.copilot",
     "action.qa_review","action.qa_reject","action.advance_workflow","action.run_ai_agent",
     "action.request_clarification",
   ],
@@ -131,6 +142,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   "Auditor / Compliance Officer": [
     "section.overview","section.audit","section.quality","section.analytics",
+    "section.compliance",
     "action.view_audit","action.export_data",
   ],
   "Support User": [
@@ -157,6 +169,11 @@ export const SECTION_PERMISSIONS: Record<string, Permission> = {
   audit: "section.audit",
   settings: "section.settings",
   rbac: "section.rbac",
+  // New additive sections (Task 11)
+  copilot: "section.copilot",
+  compliance: "section.compliance",
+  "client-portal": "section.client-portal",
+  "mobile-app": "section.mobile-app",
 };
 
 // Helper: does a role have a permission? (wildcard support)

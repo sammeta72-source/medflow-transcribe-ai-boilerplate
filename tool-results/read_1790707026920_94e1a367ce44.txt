@@ -1,0 +1,2002 @@
+     1→Below is a copy-ready **master build prompt** for an AI coding agent to
+     2→generate a production-ready, deployable SaaS platform for medical
+     3→transcription operations. It is designed around a hybrid
+     4→onsite--offshore model, AI-assisted workflow automation,
+     5→human-in-the-loop clinical quality control, compliance controls, client
+     6→portals, team operations, and EHR-ready integrations.
+     7→
+     8→**Master Build Prompt**
+     9→
+    10→You are a principal SaaS architect, senior full-stack engineer,
+    11→healthcare workflow specialist, security engineer, DevOps engineer, and
+    12→AI-agent systems designer.
+    13→
+    14→Build a fully functional, production-ready, deployable multi-tenant SaaS
+    15→application named:
+    16→
+    17→MedFlow Transcribe AI
+    18→
+    19→Tagline: Secure AI-assisted medical transcription operations for
+    20→healthcare organizations and managed offshore delivery teams.
+    21→
+    22→The product serves healthcare providers, hospitals, clinics,
+    23→transcription service organizations, medical editors, QA teams, and
+    24→onsite/offshore delivery teams.
+    25→
+    26→The platform must automate the complete medical transcription lifecycle:
+    27→
+    28→1\. Secure clinical audio/dictation intake.
+    29→
+    30→2\. AI speech-to-text transcription.
+    31→
+    32→3\. Medical-document structuring and formatting.
+    33→
+    34→4\. Specialty-aware terminology validation.
+    35→
+    36→5\. AI quality analysis and risk detection.
+    37→
+    38→6\. Intelligent work routing to transcriptionists, editors, QA
+    39→reviewers, or escalation queues.
+    40→
+    41→7\. Human review and correction workflows.
+    42→
+    43→8\. Clarification/query workflow for unclear dictation or missing
+    44→metadata.
+    45→
+    46→9\. Final approval and EHR-ready delivery.
+    47→
+    48→10\. Client reporting, operational analytics, SLA monitoring, billing,
+    49→and auditability.
+    50→
+    51→The application must be designed for a hybrid onsite--offshore delivery
+    52→model:
+    53→
+    54→\- Onsite/client-region account managers, implementation teams, and
+    55→clinical escalation coordinators.
+    56→
+    57→\- Offshore transcriptionists, medical editors, QA analysts, and
+    58→delivery managers.
+    59→
+    60→\- Healthcare client administrators, providers, and billing users.
+    61→
+    62→\- Super administrators operating the multi-tenant SaaS platform.
+    63→
+    64→Do not create a mockup, partial prototype, static dashboard, or
+    65→pseudo-code-only solution. Generate a complete working application with
+    66→database schema, authentication, authorization, APIs, background
+    67→workers, file handling, AI workflows, dashboards, tests, documentation,
+    68→Docker setup, CI/CD configuration, and deployment instructions.
+    69→
+    70→Use a modular monolith architecture initially, with clean module
+    71→boundaries so high-volume components can later become separate services.
+    72→
+    73→==================================================
+    74→
+    75→1\. PRODUCT OBJECTIVES
+    76→
+    77→==================================================
+    78→
+    79→Build a secure multi-tenant medical-documentation operations platform
+    80→that:
+    81→
+    82→\- Reduces transcription turnaround time.
+    83→
+    84→\- Uses AI to create a high-quality initial draft.
+    85→
+    86→\- Keeps qualified humans in the loop for all clinical-document approval
+    87→workflows.
+    88→
+    89→\- Provides secure role-based access to protected health information.
+    90→
+    91→\- Enables offshore production teams without exposing unnecessary
+    92→patient information.
+    93→
+    94→\- Tracks productivity, SLA compliance, accuracy, rework, backlog, and
+    95→client performance.
+    96→
+    97→\- Integrates with EHR systems through APIs, HL7/FHIR-compatible
+    98→payloads, webhooks, and secure file delivery.
+    99→
+   100→\- Supports SaaS subscription billing and organization-based access.
+   101→
+   102→\- Provides enterprise-level audit logs, security monitoring, and
+   103→operational reporting.
+   104→
+   105→The platform must never present AI-generated clinical documentation as
+   106→final without an authorized human approval step.
+   107→
+   108→==================================================
+   109→
+   110→2\. TARGET USERS AND ROLES
+   111→
+   112→==================================================
+   113→
+   114→Implement tenant-level organization membership and the following roles:
+   115→
+   116→Platform Super Admin
+   117→
+   118→\- Creates and manages tenant organizations.
+   119→
+   120→\- Controls plans, subscription status, feature flags, support access,
+   121→and global settings.
+   122→
+   123→\- Views anonymized or authorized platform-wide operational analytics.
+   124→
+   125→\- Manages security policies, audit access, integrations, and
+   126→data-retention defaults.
+   127→
+   128→Tenant Owner / Client Administrator
+   129→
+   130→\- Manages the healthcare organization profile.
+   131→
+   132→\- Creates users, roles, departments, specialties, providers, templates,
+   133→billing settings, and integrations.
+   134→
+   135→\- Reviews dashboards, SLA performance, quality reports, invoices, and
+   136→audit logs.
+   137→
+   138→\- Configures workflow rules and delivery destinations.
+   139→
+   140→Client Operations Manager
+   141→
+   142→\- Manages jobs, priorities, client queries, SLA exceptions, workflow
+   143→performance, and delivery status.
+   144→
+   145→\- Can reassign work and review offshore production performance.
+   146→
+   147→\- Can manage provider-specific instructions.
+   148→
+   149→Provider / Clinician
+   150→
+   151→\- Uploads or records dictation.
+   152→
+   153→\- Views document status.
+   154→
+   155→\- Reviews, edits, approves, signs, rejects, or requests changes to
+   156→documents.
+   157→
+   158→\- Responds to clarification requests.
+   159→
+   160→Onsite Coordinator
+   161→
+   162→\- Handles client communication, urgent workflow coordination, missing
+   163→metadata, provider support, and escalations.
+   164→
+   165→\- Assigns high-priority work and monitors client SLAs.
+   166→
+   167→Offshore Delivery Manager
+   168→
+   169→\- Manages team queues, staffing, productivity, work allocation, shifts,
+   170→and quality thresholds.
+   171→
+   172→\- Monitors backlog, aging, and turnaround time.
+   173→
+   174→Transcriptionist
+   175→
+   176→\- Receives assigned audio jobs.
+   177→
+   178→\- Creates or edits draft transcripts.
+   179→
+   180→\- Flags unclear audio or clinical ambiguities.
+   181→
+   182→\- Cannot mark documents as clinically final.
+   183→
+   184→Medical Editor
+   185→
+   186→\- Reviews AI-created or human-created drafts.
+   187→
+   188→\- Corrects grammar, formatting, terminology, numbers, medication
+   189→references, and document structure.
+   190→
+   191→\- Sends reports to QA or clarification workflows.
+   192→
+   193→Quality Analyst
+   194→
+   195→\- Performs QA review.
+   196→
+   197→\- Records errors and severity.
+   198→
+   199→\- Approves, returns for rework, or escalates high-risk content.
+   200→
+   201→\- Cannot finalize or electronically sign on behalf of a provider.
+   202→
+   203→Billing User
+   204→
+   205→\- Views usage, invoices, statements, subscription details, and payment
+   206→history.
+   207→
+   208→\- Manages payment methods where permitted.
+   209→
+   210→Auditor / Compliance Officer
+   211→
+   212→\- Has read-only access to security events, audit trails, policies, data
+   213→retention reports, and quality records.
+   214→
+   215→\- Cannot modify clinical content.
+   216→
+   217→Support User
+   218→
+   219→\- Receives restricted, time-bound, tenant-approved support access.
+   220→
+   221→\- Must have all access logged.
+   222→
+   223→Implement role-based permissions at UI, API, database-query, and
+   224→file-access layers.
+   225→
+   226→==================================================
+   227→
+   228→3\. TECHNOLOGY STACK
+   229→
+   230→==================================================
+   231→
+   232→Use this stack unless there is a compelling technical reason to improve
+   233→it:
+   234→
+   235→Frontend:
+   236→
+   237→\- Next.js 15+ using App Router.
+   238→
+   239→\- TypeScript with strict mode enabled.
+   240→
+   241→\- React Server Components where appropriate.
+   242→
+   243→\- Tailwind CSS.
+   244→
+   245→\- shadcn/ui components.
+   246→
+   247→\- React Hook Form with Zod validation.
+   248→
+   249→\- TanStack Query for client-side asynchronous state management.
+   250→
+   251→\- Zustand only for minimal local UI state.
+   252→
+   253→\- Recharts for analytics dashboards.
+   254→
+   255→\- Accessible responsive design, desktop-first for production operations
+   256→teams but fully usable on tablets.
+   257→
+   258→Backend:
+   259→
+   260→\- Next.js route handlers or NestJS API service, choosing the
+   261→architecture that best supports maintainability.
+   262→
+   263→\- TypeScript strict mode.
+   264→
+   265→\- REST API with OpenAPI documentation.
+   266→
+   267→\- Background jobs with BullMQ and Redis.
+   268→
+   269→\- WebSockets or Server-Sent Events for real-time job-status updates.
+   270→
+   271→\- Prisma ORM.
+   272→
+   273→Database:
+   274→
+   275→\- PostgreSQL.
+   276→
+   277→\- Row-level tenant isolation strategy.
+   278→
+   279→\- PostgreSQL full-text search for non-sensitive metadata and document
+   280→indexing.
+   281→
+   282→\- Database migrations and seed data.
+   283→
+   284→Storage:
+   285→
+   286→\- S3-compatible object storage such as AWS S3, Cloudflare R2, or MinIO
+   287→for local development.
+   288→
+   289→\- Signed upload/download URLs.
+   290→
+   291→\- No public file URLs.
+   292→
+   293→\- Encrypt audio and document objects at rest.
+   294→
+   295→Authentication:
+   296→
+   297→\- Auth.js, Clerk, or Supabase Auth. Select one and implement it fully.
+   298→
+   299→\- Email/password login.
+   300→
+   301→\- Magic-link or passwordless login option.
+   302→
+   303→\- MFA / TOTP for privileged roles.
+   304→
+   305→\- Session management.
+   306→
+   307→\- Password-reset workflow.
+   308→
+   309→\- Organization invitation workflow.
+   310→
+   311→\- Account lockout and suspicious-login protections.
+   312→
+   313→Payments:
+   314→
+   315→\- Stripe Billing.
+   316→
+   317→\- Free trial, monthly subscription, annual subscription, usage-based
+   318→metering, invoices, payment failure workflow, subscription cancellation,
+   319→and plan limits.
+   320→
+   321→AI:
+   322→
+   323→\- Provider abstraction supporting OpenAI, Azure OpenAI, or another
+   324→HIPAA-eligible deployment configuration.
+   325→
+   326→\- Speech-to-text provider abstraction.
+   327→
+   328→\- LLM provider abstraction.
+   329→
+   330→\- Structured output using JSON Schema or Zod schemas.
+   331→
+   332→\- Prompt versioning and AI output tracking.
+   333→
+   334→\- Queue-based execution, retry policy, idempotency, cost logging,
+   335→timeouts, and fallback logic.
+   336→
+   337→\- Human approval gates for all clinically meaningful content.
+   338→
+   339→Observability:
+   340→
+   341→\- Structured logging.
+   342→
+   343→\- Error tracking through Sentry.
+   344→
+   345→\- Metrics-compatible instrumentation.
+   346→
+   347→\- Request tracing and correlation IDs.
+   348→
+   349→\- Health-check endpoints.
+   350→
+   351→\- Admin-facing operational telemetry.
+   352→
+   353→Deployment:
+   354→
+   355→\- Docker and Docker Compose for local development.
+   356→
+   357→\- Production deployment configuration for Vercel frontend plus
+   358→containerized worker/API services, or an all-container deployment to AWS
+   359→ECS, Fly.io, Render, Railway, or DigitalOcean.
+   360→
+   361→\- GitHub Actions CI/CD.
+   362→
+   363→\- Environment-variable template.
+   364→
+   365→\- Infrastructure and deployment documentation.
+   366→
+   367→==================================================
+   368→
+   369→4\. CORE MODULES
+   370→
+   371→==================================================
+   372→
+   373→Build the following fully functional modules.
+   374→
+   375→A. Multi-Tenant Organization Management
+   376→
+   377→\- Organization creation and onboarding wizard.
+   378→
+   379→\- Organization profile, logo, timezone, country, data retention policy,
+   380→clinical specialties, default turnaround targets.
+   381→
+   382→\- Department, facility, provider, and user management.
+   383→
+   384→\- Team invitations, deactivation, role changes, and access reviews.
+   385→
+   386→\- Support multiple healthcare facilities under one tenant.
+   387→
+   388→\- Feature flags by plan and tenant.
+   389→
+   390→B. Secure Dictation Intake
+   391→
+   392→\- Upload audio files: MP3, WAV, M4A, AAC.
+   393→
+   394→\- Validate file type, size, duration, checksum, malware scanning hook,
+   395→and metadata.
+   396→
+   397→\- Audio player with wave/timeline visualization if practical.
+   398→
+   399→\- Browser microphone recording with pause, resume, playback, retry, and
+   400→secure upload.
+   401→
+   402→\- Support batch upload.
+   403→
+   404→\- Capture job metadata:
+   405→
+   406→\- Patient reference identifier.
+   407→
+   408→\- Encounter reference identifier.
+   409→
+   410→\- Provider.
+   411→
+   412→\- Facility.
+   413→
+   414→\- Department.
+   415→
+   416→\- Specialty.
+   417→
+   418→\- Document type.
+   419→
+   420→\- Priority.
+   421→
+   422→\- Required turnaround time.
+   423→
+   424→\- Delivery destination.
+   425→
+   426→\- Client-specific instructions.
+   427→
+   428→\- Generate a unique job number.
+   429→
+   430→\- Support draft, submitted, and cancelled states.
+   431→
+   432→\- Keep patient-facing identity fields minimal and configurable.
+   433→
+   434→\- Include configurable de-identification support for AI processing
+   435→where appropriate, while preserving valid workflow linkage.
+   436→
+   437→C. Job Management and Workflow Orchestration
+   438→
+   439→\- Kanban board plus table/list view.
+   440→
+   441→\- Statuses:
+   442→
+   443→\- Draft.
+   444→
+   445→\- Submitted.
+   446→
+   447→\- Intake validation.
+   448→
+   449→\- Awaiting transcription.
+   450→
+   451→\- AI transcription in progress.
+   452→
+   453→\- AI draft ready.
+   454→
+   455→\- Awaiting transcriptionist.
+   456→
+   457→\- Editing in progress.
+   458→
+   459→\- Awaiting QA.
+   460→
+   461→\- QA failed / rework required.
+   462→
+   463→\- Clarification requested.
+   464→
+   465→\- Awaiting provider review.
+   466→
+   467→\- Approved.
+   468→
+   469→\- Delivered.
+   470→
+   471→\- Rejected.
+   472→
+   473→\- Cancelled.
+   474→
+   475→\- SLA risk.
+   476→
+   477→\- Escalated.
+   478→
+   479→\- Priority levels:
+   480→
+   481→\- Routine.
+   482→
+   483→\- Urgent.
+   484→
+   485→\- STAT.
+   486→
+   487→\- Implement workflow rules that route jobs based on:
+   488→
+   489→\- Specialty.
+   490→
+   491→\- Document type.
+   492→
+   493→\- Priority.
+   494→
+   495→\- Provider preferences.
+   496→
+   497→\- Client.
+   498→
+   499→\- Audio duration.
+   500→
+   501→\- Language/accent configuration.
+   502→
+   503→\- Team capacity.
+   504→
+   505→\- User skills and certifications.
+   506→
+   507→\- SLA remaining time.
+   508→
+   509→\- QA score history.
+   510→
+   511→\- Manual assignment and reassignment.
+   512→
+   513→\- Queue views for each role.
+   514→
+   515→\- SLA timer and aging calculation using tenant timezone.
+   516→
+   517→\- Escalation policies and notification rules.
+   518→
+   519→\- Full job timeline and activity history.
+   520→
+   521→D. AI Transcription Agent
+   522→
+   523→Create an AI agent called "Transcription Agent."
+   524→
+   525→Responsibilities:
+   526→
+   527→\- Securely submit audio to configured speech-to-text provider.
+   528→
+   529→\- Retrieve transcript with timestamps and confidence data if available.
+   530→
+   531→\- Detect low-confidence regions.
+   532→
+   533→\- Produce an initial draft with punctuation and paragraph structure.
+   534→
+   535→\- Identify speaker uncertainty where supported.
+   536→
+   537→\- Assign an AI confidence score.
+   538→
+   539→\- Flag unusable audio, missing sections, unclear phrases, medication
+   540→names, measurements, dosage terms, and clinical abbreviations requiring
+   541→human attention.
+   542→
+   543→\- Never autonomously certify a document as clinically final.
+   544→
+   545→\- Store model name, prompt version, processing timestamp, processing
+   546→duration, token/cost estimate, and error state.
+   547→
+   548→\- Automatically retry transient failures.
+   549→
+   550→\- Route failed jobs to a retry queue and then a human exception queue
+   551→after retry exhaustion.
+   552→
+   553→E. Document Structuring Agent
+   554→
+   555→Create an AI agent called "Clinical Document Structuring Agent."
+   556→
+   557→Responsibilities:
+   558→
+   559→\- Convert raw transcript into the selected document template.
+   560→
+   561→\- Generate structured sections appropriate to the chosen document type.
+   562→
+   563→\- Preserve uncertainty rather than inventing clinical facts.
+   564→
+   565→\- Mark unclear content as \[INAUDIBLE\], \[UNCLEAR\], or a configurable
+   566→uncertainty marker.
+   567→
+   568→\- Extract non-authoritative metadata:
+   569→
+   570→\- Document type.
+   571→
+   572→\- Potential diagnoses.
+   573→
+   574→\- Procedure names.
+   575→
+   576→\- Medications.
+   577→
+   578→\- Allergies.
+   579→
+   580→\- Vital values.
+   581→
+   582→\- Follow-up items.
+   583→
+   584→\- Provider and facility references.
+   585→
+   586→\- Provide structured JSON output and formatted document output.
+   587→
+   588→\- Maintain source-to-output traceability where possible.
+   589→
+   590→\- Require human review before final approval.
+   591→
+   592→F. Medical QA and Risk Detection Agent
+   593→
+   594→Create an AI agent called "Medical QA Agent."
+   595→
+   596→Responsibilities:
+   597→
+   598→\- Compare audio transcript, AI draft, and edited document.
+   599→
+   600→\- Detect:
+   601→
+   602→\- Missing sentences or sections.
+   603→
+   604→\- Inconsistent patient identifiers.
+   605→
+   606→\- Medication and dosage conflicts.
+   607→
+   608→\- Numeric discrepancies.
+   609→
+   610→\- Unit inconsistencies.
+   611→
+   612→\- Date inconsistencies.
+   613→
+   614→\- Laterality errors: left/right/bilateral.
+   615→
+   616→\- Negation errors: "no" versus "known," "denies" versus "reports."
+   617→
+   618→\- Uncertain abbreviations.
+   619→
+   620→\- Possible missing signatures or attestations.
+   621→
+   622→\- Template mismatch.
+   623→
+   624→\- Unresolved \[INAUDIBLE\] or \[UNCLEAR\] placeholders.
+   625→
+   626→\- Produce:
+   627→
+   628→\- Overall quality score.
+   629→
+   630→\- Risk score.
+   631→
+   632→\- Severity classification: informational, low, medium, high, critical.
+   633→
+   634→\- Human-readable findings.
+   635→
+   636→\- Structured findings JSON.
+   637→
+   638→\- Suggested review actions.
+   639→
+   640→\- Never silently alter the final clinical document.
+   641→
+   642→\- Automatically route medium/high/critical-risk reports to QA or
+   643→escalation queues.
+   644→
+   645→G. Intelligent Routing Agent
+   646→
+   647→Create an AI agent called "Work Allocation Agent."
+   648→
+   649→Responsibilities:
+   650→
+   651→\- Select the most appropriate available worker based on:
+   652→
+   653→\- Role.
+   654→
+   655→\- Specialty proficiency.
+   656→
+   657→\- Certifications.
+   658→
+   659→\- Shift availability.
+   660→
+   661→\- Current workload.
+   662→
+   663→\- Historical quality score.
+   664→
+   665→\- Turnaround-time risk.
+   666→
+   667→\- Priority.
+   668→
+   669→\- Client eligibility.
+   670→
+   671→\- Restricted-access rules.
+   672→
+   673→\- Maintain a fairness mechanism to avoid overloading the same users.
+   674→
+   675→\- Explain the routing decision in the job audit history.
+   676→
+   677→\- Fall back to an unassigned priority queue where no eligible user is
+   678→available.
+   679→
+   680→\- Trigger escalation when no assignment is made within configured
+   681→thresholds.
+   682→
+   683→H. Human Editing and QA Workspace
+   684→
+   685→\- Rich document editor with autosave.
+   686→
+   687→\- Audio player synchronized with transcript timestamps.
+   688→
+   689→\- Keyboard shortcuts for play, pause, rewind, speed adjustment,
+   690→timestamp markers, save, submit, and flag.
+   691→
+   692→\- Side-by-side view:
+   693→
+   694→\- Audio/transcript.
+   695→
+   696→\- Editable formatted document.
+   697→
+   698→\- AI confidence and QA findings.
+   699→
+   700→\- Document metadata.
+   701→
+   702→\- Change tracking.
+   703→
+   704→\- Document versioning.
+   705→
+   706→\- Inline comments and internal notes.
+   707→
+   708→\- Flag text as unclear, query needed, or clinically risky.
+   709→
+   710→\- Return-to-transcriptionist workflow.
+   711→
+   712→\- Submit-to-QA workflow.
+   713→
+   714→\- QA checklist.
+   715→
+   716→\- Approval/rejection workflow.
+   717→
+   718→\- Restrict provider sign-off to authorized provider role.
+   719→
+   720→\- Preserve every version, editor, timestamp, reason, and audit record.
+   721→
+   722→I. Client Query and Clarification Workflow
+   723→
+   724→\- Create a clarification request when audio or information is unclear.
+   725→
+   726→\- Request types:
+   727→
+   728→\- Inaudible audio.
+   729→
+   730→\- Missing patient reference.
+   731→
+   732→\- Missing provider.
+   733→
+   734→\- Ambiguous drug name.
+   735→
+   736→\- Ambiguous dosage.
+   737→
+   738→\- Missing section.
+   739→
+   740→\- Contradictory instruction.
+   741→
+   742→\- Other.
+   743→
+   744→\- Assign query to provider, onsite coordinator, or client
+   745→administrator.
+   746→
+   747→\- Secure notifications.
+   748→
+   749→\- Threaded comments.
+   750→
+   751→\- Response and resolution states.
+   752→
+   753→\- SLA pause/resume logic based on tenant policy.
+   754→
+   755→\- Full query audit history.
+   756→
+   757→J. Provider Review, Approval, and Delivery
+   758→
+   759→\- Provider review queue.
+   760→
+   761→\- Provider can edit, approve, reject, request changes, or sign.
+   762→
+   763→\- Support an electronic-signature workflow with clear attribution,
+   764→timestamp, IP/device metadata where appropriate, and audit trail.
+   765→
+   766→\- Final document lock after approval, except controlled amendment
+   767→workflow.
+   768→
+   769→\- Delivery methods:
+   770→
+   771→\- Secure portal access.
+   772→
+   773→\- Downloadable PDF/DOCX where tenant policy allows.
+   774→
+   775→\- Secure API webhook.
+   776→
+   777→\- EHR integration adapter.
+   778→
+   779→\- HL7 message generation.
+   780→
+   781→\- FHIR DocumentReference-compatible payload generation.
+   782→
+   783→\- SFTP delivery adapter as an optional integration module.
+   784→
+   785→\- Delivery retry queue.
+   786→
+   787→\- Delivery receipts and failure reporting.
+   788→
+   789→\- Amendment and addendum workflow after finalization.
+   790→
+   791→K. Templates and Specialty Configuration
+   792→
+   793→\- Custom document templates by organization, specialty, facility,
+   794→provider, and document type.
+   795→
+   796→\- Template builder with approved section blocks and placeholders.
+   797→
+   798→\- Default template library for:
+   799→
+   800→\- SOAP note.
+   801→
+   802→\- Consultation note.
+   803→
+   804→\- History and physical.
+   805→
+   806→\- Operative report.
+   807→
+   808→\- Discharge summary.
+   809→
+   810→\- Radiology report.
+   811→
+   812→\- Procedure note.
+   813→
+   814→\- Follow-up note.
+   815→
+   816→\- Template versioning.
+   817→
+   818→\- Provider-specific formatting and phrase preferences.
+   819→
+   820→\- Specialty dictionary and abbreviation management.
+   821→
+   822→\- Restricted abbreviations list.
+   823→
+   824→\- Clinical terminology overrides subject to governance approval.
+   825→
+   826→L. Dashboard and Analytics
+   827→
+   828→Create role-specific dashboards.
+   829→
+   830→Executive/client dashboard:
+   831→
+   832→\- Total jobs.
+   833→
+   834→\- Completed jobs.
+   835→
+   836→\- Turnaround-time compliance.
+   837→
+   838→\- Average turnaround time.
+   839→
+   840→\- Cost/usage.
+   841→
+   842→\- Quality score.
+   843→
+   844→\- Critical errors.
+   845→
+   846→\- Provider adoption.
+   847→
+   848→\- Volume trends.
+   849→
+   850→\- Specialty distribution.
+   851→
+   852→\- Delivery success rate.
+   853→
+   854→Operations dashboard:
+   855→
+   856→\- New work.
+   857→
+   858→\- Queue backlog.
+   859→
+   860→\- Aging jobs.
+   861→
+   862→\- SLA risk.
+   863→
+   864→\- Workload by team/member.
+   865→
+   866→\- Jobs by status.
+   867→
+   868→\- Urgent/STAT workload.
+   869→
+   870→\- Clarification bottlenecks.
+   871→
+   872→\- Delivery failures.
+   873→
+   874→Quality dashboard:
+   875→
+   876→\- QA pass rate.
+   877→
+   878→\- Error types.
+   879→
+   880→\- Error severity.
+   881→
+   882→\- Rework rate.
+   883→
+   884→\- Accuracy score.
+   885→
+   886→\- Quality score by user/team/client/specialty.
+   887→
+   888→\- AI confidence versus human correction rate.
+   889→
+   890→\- Trending high-risk terms or templates.
+   891→
+   892→Financial dashboard:
+   893→
+   894→\- Audio minutes consumed.
+   895→
+   896→\- Jobs processed.
+   897→
+   898→\- Subscription usage.
+   899→
+   900→\- Overage forecast.
+   901→
+   902→\- Invoice status.
+   903→
+   904→\- Revenue by tenant and plan for platform admins.
+   905→
+   906→Export:
+   907→
+   908→\- CSV export.
+   909→
+   910→\- PDF reporting where appropriate.
+   911→
+   912→\- Scheduled email reports.
+   913→
+   914→\- API access for analytics exports.
+   915→
+   916→M. Subscription and Billing
+   917→
+   918→\- SaaS plans:
+   919→
+   920→\- Starter.
+   921→
+   922→\- Professional.
+   923→
+   924→\- Enterprise.
+   925→
+   926→\- Plan limits:
+   927→
+   928→\- Users.
+   929→
+   930→\- Monthly audio minutes.
+   931→
+   932→\- Storage.
+   933→
+   934→\- AI processing.
+   935→
+   936→\- Integration access.
+   937→
+   938→\- Audit retention.
+   939→
+   940→\- API rate limits.
+   941→
+   942→\- Stripe Checkout.
+   943→
+   944→\- Stripe Customer Portal.
+   945→
+   946→\- Trial workflow.
+   947→
+   948→\- Usage tracking for transcription minutes and AI processing.
+   949→
+   950→\- Overage handling.
+   951→
+   952→\- Invoice and payment history.
+   953→
+   954→\- Grace period, dunning, and limited-access workflow after payment
+   955→failure.
+   956→
+   957→\- Tenant-level plan enforcement.
+   958→
+   959→N. Notifications
+   960→
+   961→\- In-app notification center.
+   962→
+   963→\- Email notifications.
+   964→
+   965→\- Optional Slack or Microsoft Teams webhook integration.
+   966→
+   967→\- Notification preferences by role and user.
+   968→
+   969→\- Notify for:
+   970→
+   971→\- New assignment.
+   972→
+   973→\- SLA risk.
+   974→
+   975→\- Escalation.
+   976→
+   977→\- QA failure.
+   978→
+   979→\- Clarification request.
+   980→
+   981→\- Clarification response.
+   982→
+   983→\- Provider approval required.
+   984→
+   985→\- Delivery failure.
+   986→
+   987→\- Subscription/payment issue.
+   988→
+   989→\- Security event.
+   990→
+   991→\- Use queued notification delivery with retry handling.
+   992→
+   993→O. Audit, Compliance, and Security Center
+   994→
+   995→\- Immutable audit event model.
+   996→
+   997→\- Audit events for:
+   998→
+   999→\- Login/logout.
+  1000→
+  1001→\- Failed login.
+  1002→
+  1003→\- MFA changes.
+  1004→
+  1005→\- Permission changes.
+  1006→
+  1007→\- File access.
+  1008→
+  1009→\- File download.
+  1010→
+  1011→\- Upload.
+  1012→
+  1013→\- Transcription processing.
+  1014→
+  1015→\- AI calls.
+  1016→
+  1017→\- Document views.
+  1018→
+  1019→\- Edits.
+  1020→
+  1021→\- Approvals.
+  1022→
+  1023→\- Signatures.
+  1024→
+  1025→\- Delivery.
+  1026→
+  1027→\- Exports.
+  1028→
+  1029→\- Deletions.
+  1030→
+  1031→\- Billing changes.
+  1032→
+  1033→\- Support access.
+  1034→
+  1035→\- Access review reports.
+  1036→
+  1037→\- Data retention policy configuration.
+  1038→
+  1039→\- Legal hold support placeholder.
+  1040→
+  1041→\- Secure deletion workflow.
+  1042→
+  1043→\- Incident management records.
+  1044→
+  1045→\- Compliance evidence export.
+  1046→
+  1047→\- Display a clear product disclaimer that customers are responsible for
+  1048→their own regulatory obligations and configuration, while the platform
+  1049→provides technical and administrative controls.
+  1050→
+  1051→==================================================
+  1052→
+  1053→5\. AUTOMATION AND AGENT ORCHESTRATION
+  1054→
+  1055→==================================================
+  1056→
+  1057→Implement a robust agent-orchestration layer.
+  1058→
+  1059→Required agents:
+  1060→
+  1061→1\. Intake Validation Agent.
+  1062→
+  1063→2\. Transcription Agent.
+  1064→
+  1065→3\. Clinical Document Structuring Agent.
+  1066→
+  1067→4\. Medical QA Agent.
+  1068→
+  1069→5\. Work Allocation Agent.
+  1070→
+  1071→6\. SLA Monitoring Agent.
+  1072→
+  1073→7\. Delivery Agent.
+  1074→
+  1075→8\. Billing and Usage Agent.
+  1076→
+  1077→9\. Security Monitoring Agent.
+  1078→
+  1079→10\. Reporting Agent.
+  1080→
+  1081→Each agent must include:
+  1082→
+  1083→\- Explicit input schema.
+  1084→
+  1085→\- Explicit output schema.
+  1086→
+  1087→\- Idempotency key.
+  1088→
+  1089→\- Correlation ID.
+  1090→
+  1091→\- Background job queue integration.
+  1092→
+  1093→\- Retry policy.
+  1094→
+  1095→\- Timeout.
+  1096→
+  1097→\- Failure state.
+  1098→
+  1099→\- Human escalation route.
+  1100→
+  1101→\- Audit event creation.
+  1102→
+  1103→\- Tenant-aware permission validation.
+  1104→
+  1105→\- Prompt/model versioning where AI is used.
+  1106→
+  1107→\- Cost and latency logging.
+  1108→
+  1109→\- Observable execution status.
+  1110→
+  1111→Required automation rules:
+  1112→
+  1113→When a dictation is submitted:
+  1114→
+  1115→1\. Validate metadata and file.
+  1116→
+  1117→2\. Create job and calculate SLA deadline.
+  1118→
+  1119→3\. Start transcription agent.
+  1120→
+  1121→4\. Start document structuring agent after transcription succeeds.
+  1122→
+  1123→5\. Start medical QA agent after a draft is created.
+  1124→
+  1125→6\. Route to eligible transcriptionist/editor based on work allocation
+  1126→agent.
+  1127→
+  1128→7\. Notify assigned user.
+  1129→
+  1130→8\. Escalate automatically if no user accepts within a configurable
+  1131→threshold.
+  1132→
+  1133→When an editor submits a document:
+  1134→
+  1135→1\. Create a new document version.
+  1136→
+  1137→2\. Run QA agent.
+  1138→
+  1139→3\. If critical/high risk, route to QA and notify manager.
+  1140→
+  1141→4\. If medium risk, require QA review.
+  1142→
+  1143→5\. If low risk and workflow allows, send to provider review.
+  1144→
+  1145→6\. Never bypass configured human approval requirements.
+  1146→
+  1147→When a document is provider-approved:
+  1148→
+  1149→1\. Lock final version.
+  1150→
+  1151→2\. Generate required delivery representation.
+  1152→
+  1153→3\. Trigger delivery agent.
+  1154→
+  1155→4\. Log delivery response.
+  1156→
+  1157→5\. Retry delivery failure according to policy.
+  1158→
+  1159→6\. Notify the client operations manager if delivery cannot be
+  1160→completed.
+  1161→
+  1162→SLA monitoring:
+  1163→
+  1164→\- Run continuously or on a frequent scheduled interval.
+  1165→
+  1166→\- Flag jobs at 50%, 75%, 90%, and 100% of allowed turnaround time.
+  1167→
+  1168→\- Apply separate thresholds for routine, urgent, and STAT jobs.
+  1169→
+  1170→\- Escalate based on configured policy.
+  1171→
+  1172→\- Show live risk labels in queues and dashboards.
+  1173→
+  1174→Security monitoring:
+  1175→
+  1176→\- Detect excessive downloads.
+  1177→
+  1178→\- Detect impossible travel or suspicious login patterns if identity
+  1179→data supports it.
+  1180→
+  1181→\- Detect bulk export attempts.
+  1182→
+  1183→\- Alert administrators of anomalous file access.
+  1184→
+  1185→\- Automatically revoke temporary support access at expiration.
+  1186→
+  1187→==================================================
+  1188→
+  1189→6\. DATA MODEL
+  1190→
+  1191→==================================================
+  1192→
+  1193→Create a complete Prisma schema with migrations. Include at minimum the
+  1194→following entities:
+  1195→
+  1196→PlatformUser
+  1197→
+  1198→Organization
+  1199→
+  1200→OrganizationMembership
+  1201→
+  1202→Role
+  1203→
+  1204→Permission
+  1205→
+  1206→Subscription
+  1207→
+  1208→Plan
+  1209→
+  1210→UsageRecord
+  1211→
+  1212→InvoiceReference
+  1213→
+  1214→Facility
+  1215→
+  1216→Department
+  1217→
+  1218→Provider
+  1219→
+  1220→Specialty
+  1221→
+  1222→UserSkill
+  1223→
+  1224→ShiftSchedule
+  1225→
+  1226→DocumentTemplate
+  1227→
+  1228→TemplateVersion
+  1229→
+  1230→MedicalDictionaryTerm
+  1231→
+  1232→WorkflowRule
+  1233→
+  1234→SlaPolicy
+  1235→
+  1236→EscalationPolicy
+  1237→
+  1238→TranscriptionJob
+  1239→
+  1240→JobMetadata
+  1241→
+  1242→AudioAsset
+  1243→
+  1244→Document
+  1245→
+  1246→DocumentVersion
+  1247→
+  1248→DocumentSection
+  1249→
+  1250→TranscriptSegment
+  1251→
+  1252→AIExecution
+  1253→
+  1254→AIModelConfiguration
+  1255→
+  1256→PromptTemplate
+  1257→
+  1258→QualityReview
+  1259→
+  1260→QualityFinding
+  1261→
+  1262→QualityScore
+  1263→
+  1264→Assignment
+  1265→
+  1266→WorkQueue
+  1267→
+  1268→ClarificationRequest
+  1269→
+  1270→ClarificationMessage
+  1271→
+  1272→DeliveryDestination
+  1273→
+  1274→DeliveryAttempt
+  1275→
+  1276→IntegrationConnection
+  1277→
+  1278→WebhookEndpoint
+  1279→
+  1280→Notification
+  1281→
+  1282→NotificationPreference
+  1283→
+  1284→AuditEvent
+  1285→
+  1286→SecurityAlert
+  1287→
+  1288→DataRetentionPolicy
+  1289→
+  1290→SupportAccessGrant
+  1291→
+  1292→ApiKey
+  1293→
+  1294→ReportSchedule
+  1295→
+  1296→GeneratedReport
+  1297→
+  1298→FileAccessGrant
+  1299→
+  1300→Important data requirements:
+  1301→
+  1302→\- Every tenant-owned record must include organizationId.
+  1303→
+  1304→\- Enforce tenant isolation at application and database-query layers.
+  1305→
+  1306→\- Every clinically relevant document version must be immutable once
+  1307→finalized.
+  1308→
+  1309→\- Use soft delete for operational records where retention policy
+  1310→requires it.
+  1311→
+  1312→\- Store timestamps in UTC and display them in tenant/user timezone.
+  1313→
+  1314→\- Use UUIDs or secure sortable IDs.
+  1315→
+  1316→\- Avoid exposing incremental IDs publicly.
+  1317→
+  1318→\- Track createdBy, updatedBy, version number, and audit references
+  1319→where applicable.
+  1320→
+  1321→==================================================
+  1322→
+  1323→7\. API REQUIREMENTS
+  1324→
+  1325→==================================================
+  1326→
+  1327→Build documented, versioned APIs.
+  1328→
+  1329→Include:
+  1330→
+  1331→\- Authentication endpoints.
+  1332→
+  1333→\- Organization and membership endpoints.
+  1334→
+  1335→\- User/role/permission endpoints.
+  1336→
+  1337→\- Audio upload initiation and completion endpoints.
+  1338→
+  1339→\- Job CRUD endpoints.
+  1340→
+  1341→\- Job assignment and status transition endpoints.
+  1342→
+  1343→\- Transcript and document version endpoints.
+  1344→
+  1345→\- Editing, QA, review, approval, and signature endpoints.
+  1346→
+  1347→\- Clarification endpoints.
+  1348→
+  1349→\- Template endpoints.
+  1350→
+  1351→\- Analytics endpoints.
+  1352→
+  1353→\- Billing and Stripe webhook endpoints.
+  1354→
+  1355→\- Integration configuration endpoints.
+  1356→
+  1357→\- Delivery/webhook endpoints.
+  1358→
+  1359→\- Audit and security endpoints.
+  1360→
+  1361→\- Support access endpoints.
+  1362→
+  1363→\- Health, readiness, and metrics endpoints.
+  1364→
+  1365→Requirements:
+  1366→
+  1367→\- OpenAPI/Swagger documentation.
+  1368→
+  1369→\- Input validation with Zod or equivalent.
+  1370→
+  1371→\- Consistent error response structure.
+  1372→
+  1373→\- Pagination, filtering, sorting, and full-text search.
+  1374→
+  1375→\- Rate limiting.
+  1376→
+  1377→\- API key support for enterprise integrations.
+  1378→
+  1379→\- Webhook signing and webhook delivery retries.
+  1380→
+  1381→\- Idempotency support for write operations.
+  1382→
+  1383→\- Authorization on every endpoint.
+  1384→
+  1385→\- Avoid direct client-side database access for privileged operations.
+  1386→
+  1387→==================================================
+  1388→
+  1389→8\. UI/UX REQUIREMENTS
+  1390→
+  1391→==================================================
+  1392→
+  1393→Create a polished healthcare B2B SaaS interface.
+  1394→
+  1395→Layout:
+  1396→
+  1397→\- Left navigation sidebar.
+  1398→
+  1399→\- Top header with global search, organization switcher, notifications,
+  1400→help, user menu.
+  1401→
+  1402→\- Responsive layout.
+  1403→
+  1404→\- Light mode and dark mode.
+  1405→
+  1406→\- Accessible color contrast.
+  1407→
+  1408→\- Keyboard navigation.
+  1409→
+  1410→\- ARIA labels and semantic HTML.
+  1411→
+  1412→Navigation:
+  1413→
+  1414→\- Overview.
+  1415→
+  1416→\- Jobs.
+  1417→
+  1418→\- My Queue.
+  1419→
+  1420→\- Upload Dictation.
+  1421→
+  1422→\- Documents.
+  1423→
+  1424→\- Clarifications.
+  1425→
+  1426→\- Quality.
+  1427→
+  1428→\- Templates.
+  1429→
+  1430→\- Analytics.
+  1431→
+  1432→\- Integrations.
+  1433→
+  1434→\- Team.
+  1435→
+  1436→\- Billing.
+  1437→
+  1438→\- Audit & Security.
+  1439→
+  1440→\- Settings.
+  1441→
+  1442→Important pages:
+  1443→
+  1444→1\. Landing page.
+  1445→
+  1446→2\. Pricing page.
+  1447→
+  1448→3\. Login, signup, password reset, MFA setup.
+  1449→
+  1450→4\. Tenant onboarding wizard.
+  1451→
+  1452→5\. Executive dashboard.
+  1453→
+  1454→6\. Operations dashboard.
+  1455→
+  1456→7\. Job list with powerful filters.
+  1457→
+  1458→8\. Kanban workflow board.
+  1459→
+  1460→9\. Upload/record dictation page.
+  1461→
+  1462→10\. Job details page.
+  1463→
+  1464→11\. Editor workspace.
+  1465→
+  1466→12\. QA review workspace.
+  1467→
+  1468→13\. Provider review/signoff page.
+  1469→
+  1470→14\. Clarification center.
+  1471→
+  1472→15\. Templates and dictionaries.
+  1473→
+  1474→16\. Analytics and export center.
+  1475→
+  1476→17\. Integration management.
+  1477→
+  1478→18\. Team and shift management.
+  1479→
+  1480→19\. Billing and subscription pages.
+  1481→
+  1482→20\. Audit and security center.
+  1483→
+  1484→21\. Super-admin platform console.
+  1485→
+  1486→Use realistic healthcare workflow sample data but do not use real
+  1487→patient information.
+  1488→
+  1489→==================================================
+  1490→
+  1491→9\. SECURITY AND PRIVACY REQUIREMENTS
+  1492→
+  1493→==================================================
+  1494→
+  1495→Design for HIPAA-aligned technical safeguards and enterprise security
+  1496→practices. Do not claim legal compliance certification. Include clear
+  1497→configuration and responsibility documentation.
+  1498→
+  1499→Implement:
+  1500→
+  1501→\- HTTPS-only production configuration.
+  1502→
+  1503→\- Encryption in transit and at rest.
+  1504→
+  1505→\- Server-side authorization checks.
+  1506→
+  1507→\- Tenant isolation.
+  1508→
+  1509→\- RBAC and least privilege.
+  1510→
+  1511→\- MFA for privileged accounts.
+  1512→
+  1513→\- Secure sessions and cookies.
+  1514→
+  1515→\- CSRF protection where applicable.
+  1516→
+  1517→\- Input validation.
+  1518→
+  1519→\- Output encoding.
+  1520→
+  1521→\- SQL injection prevention through ORM and parameterized queries.
+  1522→
+  1523→\- XSS protections.
+  1524→
+  1525→\- Content Security Policy.
+  1526→
+  1527→\- Rate limiting and abuse protection.
+  1528→
+  1529→\- Secure file scanning integration interface.
+  1530→
+  1531→\- Signed short-lived object-storage URLs.
+  1532→
+  1533→\- No public buckets.
+  1534→
+  1535→\- PII/PHI-safe logging with redaction.
+  1536→
+  1537→\- Secrets only in environment variables or secrets manager.
+  1538→
+  1539→\- No API keys in source code.
+  1540→
+  1541→\- Data retention and deletion policies.
+  1542→
+  1543→\- Audit log immutability strategy.
+  1544→
+  1545→\- Backup and restoration documentation.
+  1546→
+  1547→\- Disaster-recovery runbook.
+  1548→
+  1549→\- Incident-response runbook.
+  1550→
+  1551→\- BAA/vendor assessment checklist template.
+  1552→
+  1553→\- Configurable de-identification pipeline for applicable AI workflows.
+  1554→
+  1555→\- Strict data-minimization defaults.
+  1556→
+  1557→For development mode:
+  1558→
+  1559→\- Use synthetic sample data only.
+  1560→
+  1561→\- Clearly mark the demo tenant as synthetic.
+  1562→
+  1563→\- Never include real clinical records.
+  1564→
+  1565→==================================================
+  1566→
+  1567→10\. QUALITY, TESTING, AND RELIABILITY
+  1568→
+  1569→==================================================
+  1570→
+  1571→Implement:
+  1572→
+  1573→Unit tests:
+  1574→
+  1575→\- Business logic.
+  1576→
+  1577→\- RBAC.
+  1578→
+  1579→\- SLA calculations.
+  1580→
+  1581→\- Routing rules.
+  1582→
+  1583→\- Document versioning.
+  1584→
+  1585→\- AI output validation.
+  1586→
+  1587→\- Billing limits.
+  1588→
+  1589→\- Webhook signature validation.
+  1590→
+  1591→Integration tests:
+  1592→
+  1593→\- Authentication flow.
+  1594→
+  1595→\- Upload to job creation.
+  1596→
+  1597→\- AI-job orchestration.
+  1598→
+  1599→\- Editing to QA workflow.
+  1600→
+  1601→\- Provider approval to delivery workflow.
+  1602→
+  1603→\- Stripe webhook lifecycle.
+  1604→
+  1605→\- Tenant isolation tests.
+  1606→
+  1607→\- Delivery retry tests.
+  1608→
+  1609→End-to-end tests:
+  1610→
+  1611→\- New tenant onboarding.
+  1612→
+  1613→\- Dictation upload.
+  1614→
+  1615→\- Automated AI processing.
+  1616→
+  1617→\- Work allocation.
+  1618→
+  1619→\- Editing.
+  1620→
+  1621→\- QA.
+  1622→
+  1623→\- Provider approval.
+  1624→
+  1625→\- Final delivery.
+  1626→
+  1627→\- Audit log verification.
+  1628→
+  1629→Operational safeguards:
+  1630→
+  1631→\- Retry queues.
+  1632→
+  1633→\- Dead-letter queues.
+  1634→
+  1635→\- Job idempotency.
+  1636→
+  1637→\- Graceful error states.
+  1638→
+  1639→\- Admin retry controls.
+  1640→
+  1641→\- Circuit breaker or fallback logic for AI providers.
+  1642→
+  1643→\- Backup processing path where speech-to-text fails.
+  1644→
+  1645→\- Monitoring dashboard.
+  1646→
+  1647→\- Health checks.
+  1648→
+  1649→\- Load-test plan.
+  1650→
+  1651→\- Security test checklist.
+  1652→
+  1653→==================================================
+  1654→
+  1655→11\. DEPLOYMENT REQUIREMENTS
+  1656→
+  1657→==================================================
+  1658→
+  1659→Deliver a repository that can run locally and deploy to production.
+  1660→
+  1661→Provide:
+  1662→
+  1663→\- Dockerfile for application.
+  1664→
+  1665→\- Dockerfile for background worker.
+  1666→
+  1667→\- docker-compose.yml for local environment.
+  1668→
+  1669→\- PostgreSQL service.
+  1670→
+  1671→\- Redis service.
+  1672→
+  1673→\- MinIO or S3-compatible local storage service.
+  1674→
+  1675→\- Environment variable template file.
+  1676→
+  1677→\- Prisma migration scripts.
+  1678→
+  1679→\- Database seed script.
+  1680→
+  1681→\- GitHub Actions workflow:
+  1682→
+  1683→\- Lint.
+  1684→
+  1685→\- Type check.
+  1686→
+  1687→\- Unit tests.
+  1688→
+  1689→\- Integration tests.
+  1690→
+  1691→\- Build.
+  1692→
+  1693→\- Security/dependency scan.
+  1694→
+  1695→\- Deploy staging.
+  1696→
+  1697→\- Deploy production with approval gate.
+  1698→
+  1699→\- Production deployment guide.
+  1700→
+  1701→\- Rollback procedure.
+  1702→
+  1703→\- Backup/restore procedure.
+  1704→
+  1705→\- Custom domain and HTTPS configuration guide.
+  1706→
+  1707→\- Production environment checklist.
+  1708→
+  1709→Suggested environment variables:
+  1710→
+  1711→DATABASE_URL=
+  1712→
+  1713→REDIS_URL=
+  1714→
+  1715→AUTH_SECRET=
+  1716→
+  1717→NEXTAUTH_URL=
+  1718→
+  1719→S3_ENDPOINT=
+  1720→
+  1721→S3_REGION=
+  1722→
+  1723→S3_BUCKET=
+  1724→
+  1725→S3_ACCESS_KEY_ID=
+  1726→
+  1727→S3_SECRET_ACCESS_KEY=
+  1728→
+  1729→OPENAI_API_KEY=
+  1730→
+  1731→AZURE_OPENAI_ENDPOINT=
+  1732→
+  1733→AZURE_OPENAI_API_KEY=
+  1734→
+  1735→SPEECH_TO_TEXT_PROVIDER=
+  1736→
+  1737→STRIPE_SECRET_KEY=
+  1738→
+  1739→STRIPE_WEBHOOK_SECRET=
+  1740→
+  1741→STRIPE_PUBLISHABLE_KEY=
+  1742→
+  1743→EMAIL_PROVIDER_API_KEY=
+  1744→
+  1745→SENTRY_DSN=
+  1746→
+  1747→ENCRYPTION_KEY=
+  1748→
+  1749→APP_URL=
+  1750→
+  1751→SUPPORT_EMAIL=
+  1752→
+  1753→DEFAULT_TIMEZONE=
+  1754→
+  1755→Use provider abstractions so AI, storage, email, authentication, and EHR
+  1756→integrations can be changed without major application rewrites.
+  1757→
+  1758→==================================================
+  1759→
+  1760→12\. DELIVERABLES
+  1761→
+  1762→==================================================
+  1763→
+  1764→Generate all of the following:
+  1765→
+  1766→1\. Complete source code.
+  1767→
+  1768→2\. README with architecture overview and local setup.
+  1769→
+  1770→3\. Detailed deployment guide.
+  1771→
+  1772→4\. System architecture diagram in Mermaid.
+  1773→
+  1774→5\. Database ERD in Mermaid.
+  1775→
+  1776→6\. Prisma schema and migrations.
+  1777→
+  1778→7\. OpenAPI specification.
+  1779→
+  1780→8\. API documentation.
+  1781→
+  1782→9\. Role-permission matrix.
+  1783→
+  1784→10\. Workflow-state transition diagram.
+  1785→
+  1786→11\. AI-agent orchestration diagram.
+  1787→
+  1788→12\. Security and compliance implementation guide.
+  1789→
+  1790→13\. Data-processing and retention guide.
+  1791→
+  1792→14\. Incident-response runbook.
+  1793→
+  1794→15\. Backup and disaster-recovery runbook.
+  1795→
+  1796→16\. Test plan and implemented test suite.
+  1797→
+  1798→17\. Seed data for a fictional medical transcription organization.
+  1799→
+  1800→18\. Example client tenant, providers, jobs, templates, users, and
+  1801→queues.
+  1802→
+  1803→19\. Demo instructions.
+  1804→
+  1805→20\. Product roadmap showing MVP, v1, and enterprise enhancements.
+  1806→
+  1807→==================================================
+  1808→
+  1809→13\. IMPLEMENTATION ORDER
+  1810→
+  1811→==================================================
+  1812→
+  1813→Implement in this order:
+  1814→
+  1815→Phase 1: Foundation
+  1816→
+  1817→\- Repository structure.
+  1818→
+  1819→\- Authentication.
+  1820→
+  1821→\- Multi-tenancy.
+  1822→
+  1823→\- RBAC.
+  1824→
+  1825→\- Database schema.
+  1826→
+  1827→\- Tenant onboarding.
+  1828→
+  1829→\- Core UI shell.
+  1830→
+  1831→\- Audit framework.
+  1832→
+  1833→\- Docker local environment.
+  1834→
+  1835→Phase 2: Core transcription operations
+  1836→
+  1837→\- Secure audio upload.
+  1838→
+  1839→\- Job creation.
+  1840→
+  1841→\- Job queues.
+  1842→
+  1843→\- Workflow state machine.
+  1844→
+  1845→\- Assignment.
+  1846→
+  1847→\- Document and version management.
+  1848→
+  1849→\- Human editor workspace.
+  1850→
+  1851→\- Clarification workflow.
+  1852→
+  1853→\- QA workflow.
+  1854→
+  1855→Phase 3: AI automation
+  1856→
+  1857→\- Speech-to-text integration abstraction.
+  1858→
+  1859→\- Transcription Agent.
+  1860→
+  1861→\- Structuring Agent.
+  1862→
+  1863→\- Medical QA Agent.
+  1864→
+  1865→\- Work Allocation Agent.
+  1866→
+  1867→\- SLA Monitoring Agent.
+  1868→
+  1869→\- Agent logs and retry queues.
+  1870→
+  1871→Phase 4: Delivery and integrations
+  1872→
+  1873→\- Provider review and approval.
+  1874→
+  1875→\- Finalization.
+  1876→
+  1877→\- Secure delivery.
+  1878→
+  1879→\- Webhooks.
+  1880→
+  1881→\- FHIR-compatible export.
+  1882→
+  1883→\- HL7-compatible export.
+  1884→
+  1885→\- EHR integration adapter framework.
+  1886→
+  1887→Phase 5: SaaS operations
+  1888→
+  1889→\- Analytics.
+  1890→
+  1891→\- Reporting.
+  1892→
+  1893→\- Stripe billing.
+  1894→
+  1895→\- Usage metering.
+  1896→
+  1897→\- Notifications.
+  1898→
+  1899→\- Platform super-admin dashboard.
+  1900→
+  1901→\- Security center.
+  1902→
+  1903→Phase 6: Hardening
+  1904→
+  1905→\- Comprehensive tests.
+  1906→
+  1907→\- Performance optimization.
+  1908→
+  1909→\- Error monitoring.
+  1910→
+  1911→\- CI/CD.
+  1912→
+  1913→\- Documentation.
+  1914→
+  1915→\- Deployment validation.
+  1916→
+  1917→\- Security review.
+  1918→
+  1919→==================================================
+  1920→
+  1921→14\. ACCEPTANCE CRITERIA
+  1922→
+  1923→==================================================
+  1924→
+  1925→The application is complete only when:
+  1926→
+  1927→\- A new tenant can sign up and complete onboarding.
+  1928→
+  1929→\- An administrator can invite and assign users to roles.
+  1930→
+  1931→\- A provider can upload or record a dictation.
+  1932→
+  1933→\- The system creates a job, calculates SLA, and starts AI processing.
+  1934→
+  1935→\- The system generates a draft transcript and structured document.
+  1936→
+  1937→\- The system routes work to an eligible transcriptionist or editor.
+  1938→
+  1939→\- A transcriptionist/editor can edit with audio playback and autosave.
+  1940→
+  1941→\- A QA analyst can review findings and approve or return work.
+  1942→
+  1943→\- A provider can review, approve, sign, or request changes.
+  1944→
+  1945→\- The system locks approved versions and logs all actions.
+  1946→
+  1947→\- The system delivers finalized documents through at least one
+  1948→functioning delivery method.
+  1949→
+  1950→\- Dashboards show job volume, SLA, quality, queue, and usage metrics.
+  1951→
+  1952→\- Stripe subscriptions and usage limits work in test mode.
+  1953→
+  1954→\- Every protected workflow has authorization checks and audit records.
+  1955→
+  1956→\- Every AI output is tracked, validated, reviewable, and cannot
+  1957→autonomously become a final clinical record.
+  1958→
+  1959→\- The app runs with docker-compose locally.
+  1960→
+  1961→\- The app has clear production deployment instructions.
+  1962→
+  1963→\- Automated tests pass.
+  1964→
+  1965→\- Seed data supports a complete demo workflow.
+  1966→
+  1967→\- No secrets, production credentials, or real patient data are included
+  1968→in the repository.
+  1969→
+  1970→Before finalizing, run the application, execute tests, correct all
+  1971→build/type/lint errors, and provide a concise summary of:
+  1972→
+  1973→\- Architecture.
+  1974→
+  1975→\- Features implemented.
+  1976→
+  1977→\- AI agent workflows.
+  1978→
+  1979→\- Security controls.
+  1980→
+  1981→\- Deployment steps.
+  1982→
+  1983→\- Known limitations and recommended next steps.
+  1984→
+  1985→**Implementation guidance**
+  1986→
+  1987→Use this prompt with an AI coding environment that can create a
+  1988→repository, execute commands, run database migrations, create Docker
+  1989→files, and validate the deployed application. A good implementation
+  1990→sequence is to build the platform initially with synthetic test records
+  1991→and a configurable "demo AI" adapter, then replace it with approved
+  1992→speech-to-text and LLM providers in a properly governed production
+  1993→environment.
+  1994→
+  1995→**Important practical boundary**
+  1996→
+  1997→The application should be marketed as an **AI-assisted clinical
+  1998→documentation operations platform**, not as an autonomous medical-record
+  1999→generator. Its product rules should ensure:
+  2000→
+
+[showing lines 1-2000 of 2049; use offset=2001 with limit to continue reading]

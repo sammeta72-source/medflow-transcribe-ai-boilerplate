@@ -1,0 +1,215 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  MedFlow Transcribe AI — Teal/Green Medical BPO SaaS Theme
+  Primary 50%   : #0B5345 (deep teal)   — headers, sidebar, primary buttons, hero
+  Secondary 30% : #1ABC9C (sea green)   — accents, badges, icons, highlights
+  Dark accent 20%: #17202A (dark slate)  — text, dark cards, footers
+  Background    : #E8F8F5 (mint/off-white)
+  Card surface  : #FFFFFF
+*/
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* MedFlow Teal/Green palette */
+  --mf-primary: #0B5345;
+  --mf-primary-600: #0d6651;
+  --mf-primary-700: #094a3a;
+  --mf-secondary: #1ABC9C;
+  --mf-secondary-600: #16a085;
+  --mf-dark: #17202A;
+  --mf-dark-700: #1f2937;
+  --mf-bg: #E8F8F5;
+  --mf-bg-soft: #f0faf8;
+
+  /* shadcn token mapping to brand palette */
+  --background: #E8F8F5;
+  --foreground: #17202A;
+  --card: #ffffff;
+  --card-foreground: #17202A;
+  --popover: #ffffff;
+  --popover-foreground: #17202A;
+  --primary: #0B5345;
+  --primary-foreground: #ffffff;
+  --secondary: #1ABC9C;
+  --secondary-foreground: #ffffff;
+  --muted: #e2eee9;
+  --muted-foreground: #5b6770;
+  --accent: #1ABC9C;
+  --accent-foreground: #ffffff;
+  --destructive: #c0392b;
+  --border: #d4e6e0;
+  --input: #cfe0d9;
+  --ring: #1ABC9C;
+  --chart-1: #0B5345;
+  --chart-2: #1ABC9C;
+  --chart-3: #16a085;
+  --chart-4: #f4d03f;
+  --chart-5: #e67e22;
+  --sidebar: #0B5345;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #1ABC9C;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #0d6651;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #0d6651;
+  --sidebar-ring: #1ABC9C;
+}
+
+.dark {
+  --background: #0f1419;
+  --foreground: #E8F8F5;
+  --card: #17202A;
+  --card-foreground: #E8F8F5;
+  --popover: #17202A;
+  --popover-foreground: #E8F8F5;
+  --primary: #1ABC9C;
+  --primary-foreground: #0f1419;
+  --secondary: #0B5345;
+  --secondary-foreground: #E8F8F5;
+  --muted: #1f2937;
+  --muted-foreground: #9bb4ad;
+  --accent: #1ABC9C;
+  --accent-foreground: #0f1419;
+  --destructive: #e74c3c;
+  --border: #1f2d38;
+  --input: #1f2d38;
+  --ring: #1ABC9C;
+  --chart-1: #1ABC9C;
+  --chart-2: #16a085;
+  --chart-3: #0B5345;
+  --chart-4: #f4d03f;
+  --chart-5: #e67e22;
+  --sidebar: #0B5345;
+  --sidebar-foreground: #E8F8F5;
+  --sidebar-primary: #1ABC9C;
+  --sidebar-primary-foreground: #0f1419;
+  --sidebar-accent: #0d6651;
+  --sidebar-accent-foreground: #E8F8F5;
+  --sidebar-border: #0d6651;
+  --sidebar-ring: #1ABC9C;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #b6d4cb;
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #1ABC9C;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #1f2d38;
+  }
+}
+
+@layer utilities {
+  /* MedFlow brand gradient */
+  .mf-gradient {
+    background: linear-gradient(135deg, #0B5345 0%, #0d6651 55%, #1ABC9C 100%);
+  }
+  .mf-gradient-soft {
+    background: linear-gradient(135deg, #E8F8F5 0%, #f0faf8 50%, #d4f0ea 100%);
+  }
+  .mf-text-gradient {
+    background: linear-gradient(135deg, #0B5345 0%, #1ABC9C 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  /* Kanban card accent tabs (Image 2 spectrum) */
+  .mf-tab-yellow  { background-color: #F4D03F; }
+  .mf-tab-orange  { background-color: #E67E22; }
+  .mf-tab-brown   { background-color: #8B7355; }
+  .mf-tab-green   { background-color: #58D68D; }
+  .mf-tab-teal    { background-color: #48C9B0; }
+  .mf-tab-blue    { background-color: #2980B9; }
+  .mf-tab-slate   { background-color: #7F8C8D; }
+  .mf-tab-purple  { background-color: #9B59B6; }
+  .mf-tab-pink    { background-color: #EB984E; }
+  .mf-tab-red     { background-color: #C0392B; }
+  .mf-tab-navy    { background-color: #0B5345; }
+
+  .mf-shadow-card {
+    box-shadow: 0 4px 20px rgba(11, 83, 69, 0.08);
+  }
+  .mf-shadow-card-hover {
+    box-shadow: 0 8px 30px rgba(11, 83, 69, 0.15);
+  }
+  /* Subtle pulse for live/running state */
+  @keyframes mf-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  .mf-pulse {
+    animation: mf-pulse 1.6s ease-in-out infinite;
+  }
+  /* Waveform animation */
+  @keyframes mf-wave {
+    0%, 100% { transform: scaleY(0.3); }
+    50% { transform: scaleY(1); }
+  }
+  .mf-wave-bar {
+    animation: mf-wave 1.1s ease-in-out infinite;
+  }
+}

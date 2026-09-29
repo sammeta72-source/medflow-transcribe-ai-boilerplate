@@ -1,0 +1,11 @@
+{
+  "name": "ai-agents-service",
+  "version": "1.0.0",
+  "description": "MedFlow Transcribe AI — FastAPI backend (10 AI agents, multi-DB connectors, FHIR/HL7).",
+  "private": true,
+  "scripts": {
+    "dev": "python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "start": "python3 -m uvicorn main:app --host 0.0.0.0 --port 8000",
+    "lint": "python3 -c \"import ast; ast.parse(open('main.py').read()); print('main.py syntax OK')\""
+  }
+}

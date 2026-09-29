@@ -1,0 +1,5 @@
+# AI Agents Service — Python dependencies
+# Pinned for reproducibility. Already installed in the project venv.
+fastapi==0.128.0
+uvicorn[standard]==0.44.0
+pydantic==2.12.5

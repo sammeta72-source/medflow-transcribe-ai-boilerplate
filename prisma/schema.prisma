@@ -1,0 +1,437 @@
+// MedFlow Transcribe AI — Prisma Schema
+// Multi-tenant medical transcription BPO SaaS data model.
+// SQLite is the local/seed DB; same schema works on Postgres/Supabase/MySQL via the
+// FastAPI DB-connector service (see mini-services/ai-agents-service).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// TENANCY, USERS, ROLES
+// ============================================================
+
+model Organization {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  country         String?
+  timezone        String?
+  logoUrl         String?
+  planTier        String   @default("Professional") // Starter|Professional|Enterprise
+  status          String   @default("active") // active|trial|suspended|deleted
+  trialEndsAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members         OrganizationMembership[]
+  facilities      Facility[]
+  departments     Department[]
+  specialties     Specialty[]
+  providers       Provider[]
+  templates       DocumentTemplate[]
+  jobs            TranscriptionJob[]
+  auditEvents     AuditEvent[]
+  subscriptions   Subscription[]
+  usageRecords    UsageRecord[]
+  integrations    IntegrationConnection[]
+  deliveryDestinations DeliveryDestination[]
+  notifications   Notification[]
+  dataPolicy      DataRetentionPolicy?
+  users           User[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  passwordHash   String?
+  role           String   @default("Provider") // see Role enum-like string
+  mfaEnabled     Boolean  @default(false)
+  status         String   @default("active") // active|invited|suspended|deleted
+  lastLoginAt    DateTime?
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  memberships    OrganizationMembership[]
+  providers      Provider[]
+  assignments    Assignment[]
+  clarifications ClarificationRequest[] @relation("ClarificationCreator")
+  clarificationMessages ClarificationMessage[]
+  notifications  Notification[]
+  skills         UserSkill[]
+  shifts         ShiftSchedule[]
+}
+
+model OrganizationMembership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String   // Tenant Owner|Client Admin|Ops Manager|Provider|Onsite Coordinator|Offshore Delivery Manager|Transcriptionist|Medical Editor|QA Analyst|Billing User|Auditor|Support User
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+// ============================================================
+// CLINICAL CONFIGURATION
+// ============================================================
+
+model Facility {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  code           String
+  address        String?
+  timezone       String?
+  createdAt      DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobs           TranscriptionJob[]
+}
+
+model Department {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  createdAt      DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobs           TranscriptionJob[]
+}
+
+model Specialty {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  createdAt      DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobs           TranscriptionJob[]
+  userSkills     UserSkill[]
+}
+
+model Provider {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  name           String
+  npi            String?  // National Provider Identifier (synthetic)
+  title          String? // MD, DO, NP
+  signatureName  String?
+  createdAt      DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  jobs           TranscriptionJob[]
+}
+
+model UserSkill {
+  id             String   @id @default(cuid())
+  userId         String
+  specialtyId    String
+  proficiency    String   @default("intermediate") // beginner|intermediate|expert
+  certifications String? // comma-separated, e.g. CMT, AHDI
+  createdAt      DateTime @default(now())
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty      Specialty  @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+}
+
+model ShiftSchedule {
+  id             String   @id @default(cuid())
+  userId         String
+  dayOfWeek      String   // Mon..Sun
+  startTime      String   // HH:mm
+  endTime        String   // HH:mm
+  timezone       String?
+  createdAt      DateTime @default(now())
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// TEMPLATES
+// ============================================================
+
+model DocumentTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String   // SOAP Note, Consultation Note, H&P, Op Report, Discharge Summary, Radiology, Procedure, Follow-up
+  documentType   String
+  specialty      String?
+  sectionsJson   String   // JSON array of section blocks
+  versionNumber  Int      @default(1)
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobs           TranscriptionJob[]
+}
+
+// ============================================================
+// TRANSCRIPTION JOBS & WORKFLOW
+// ============================================================
+
+model TranscriptionJob {
+  id             String   @id @default(cuid())
+  jobNumber      String   @unique // JOB-2024-0001 style
+  organizationId String
+  status         String   @default("Draft")
+  priority       String   @default("Routine") // Routine|Urgent|STAT
+  patientRef     String?  // synthetic patient reference (e.g. SYN-884721)
+  encounterRef   String?
+  providerId     String?
+  facilityId     String?
+  departmentId   String?
+  specialtyId    String?
+  templateId     String?
+  documentType   String
+  audioFileName  String?
+  audioDurationSec Int?
+  audioSizeBytes Int?
+  slaDeadline    DateTime?
+  slaPercent     Float?  @default(0)
+  slaRiskLabel   String? // on-track|at-risk|breach
+  deliveryDest   String? // portal|pdf|fhir|hl7|sftp|webhook
+  clientInstructions String?
+  transcriptText String?
+  structuredDocJson String?
+  aiConfidence   Float?
+  qualityScore   Int?
+  riskScore      Float?
+  riskSeverity   String? // informational|low|medium|high|critical
+  assignedToId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider       Provider?         @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  facility       Facility?        @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+  department     Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  specialty      Specialty?      @relation(fields: [specialtyId], references: [id], onDelete: SetNull)
+  template       DocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  events         JobEvent[]
+  assignments    Assignment[]
+  qualityReviews QualityReview[]
+  clarifications ClarificationRequest[]
+  deliveryAttempts DeliveryAttempt[]
+}
+
+model JobEvent {
+  id             String   @id @default(cuid())
+  jobId          String
+  event          String   // status_changed|assigned|transcribed|structured|qa_passed|qa_failed|clarification|approved|delivered
+  fromStatus     String?
+  toStatus       String?
+  actorId        String?
+  actorName      String
+  detail         String?
+  metadataJson   String?
+  createdAt      DateTime @default(now())
+  job            TranscriptionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id             String   @id @default(cuid())
+  jobId          String
+  userId         String
+  role           String   // Transcriptionist|Medical Editor|QA Analyst|Provider
+  status         String   @default("assigned") // assigned|accepted|reassigned|completed|rejected
+  assignedReason String?
+  createdAt      DateTime @default(now())
+  job            TranscriptionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model QualityReview {
+  id             String   @id @default(cuid())
+  jobId          String
+  reviewerId     String?
+  qualityScore   Int
+  riskScore      Float
+  riskSeverity   String
+  recommendedAction String?
+  findingsJson   String   // array of findings
+  createdAt      DateTime @default(now())
+  job            TranscriptionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// CLARIFICATIONS
+// ============================================================
+
+model ClarificationRequest {
+  id             String   @id @default(cuid())
+  jobId          String
+  creatorId      String?
+  requestType    String   // inaudible_audio|missing_patient_ref|missing_provider|ambiguous_drug|ambiguous_dosage|missing_section|contradictory_instruction|other
+  severity       String   @default("medium")
+  question       String
+  status         String   @default("open") // open|answered|resolved|rejected
+  slaPausedAt    DateTime?
+  createdAt      DateTime @default(now())
+  resolvedAt     DateTime?
+  job            TranscriptionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  creator        User?      @relation("ClarificationCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  messages       ClarificationMessage[]
+}
+
+model ClarificationMessage {
+  id             String   @id @default(cuid())
+  clarificationId String
+  authorId       String?
+  body           String
+  isInternal     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  clarification  ClarificationRequest @relation(fields: [clarificationId], references: [id], onDelete: Cascade)
+  author         User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+}
+
+// ============================================================
+// BILLING & USAGE
+// ============================================================
+
+model Subscription {
+  id             String   @id @default(cuid())
+  organizationId String
+  planTier       String   // Starter|Professional|Enterprise
+  status         String   @default("trialing") // trialing|active|past_due|canceled|unpaid
+  monthlyAudioMinutesLimit Int
+  seatsLimit     Int
+  storageLimitGb Int
+  stripeCustomerId String?
+  stripeSubscriptionId String?
+  currentPeriodEnd DateTime?
+  createdAt       DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  organizationId String
+  periodStart    DateTime
+  periodEnd      DateTime
+  audioMinutes   Float
+  jobsProcessed  Int
+  aiMinutes      Float
+  storageUsedGb Float
+  costUsd        Float
+  createdAt      DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// INTEGRATIONS & DELIVERY
+// ============================================================
+
+model IntegrationConnection {
+  id             String   @id @default(cuid())
+  organizationId String
+  type           String   // epic|cerner|allscripts|athena|sftp|rest_webhook|hl7_fhir|hl7_v2
+  name           String
+  status         String   @default("configured") // configured|connected|error|disabled
+  configJson     String?
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model DeliveryDestination {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  method         String   // portal|pdf|fhir|hl7|sftp|webhook
+  endpoint       String?
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveryAttempts DeliveryAttempt[]
+}
+
+model DeliveryAttempt {
+  id             String   @id @default(cuid())
+  jobId          String
+  destinationId  String?
+  method         String
+  status         String   @default("pending") // pending|delivered|failed|retrying
+  responseCode   Int?
+  latencyMs      Int?
+  retryCount     Int      @default(0)
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  job            TranscriptionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  destination    DeliveryDestination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+}
+
+// ============================================================
+// NOTIFICATIONS, AUDIT, SECURITY
+// ============================================================
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  type           String   // new_assignment|sla_risk|escalation|qa_failure|clarification_request|clarification_response|provider_approval_required|delivery_failure|subscription_issue|security_event
+  title          String
+  body           String?
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String?
+  actorId        String?
+  actor          AuditActor? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action         String   // login|logout|failed_login|mfa_change|permission_change|file_access|file_download|upload|transcription|ai_call|document_view|edit|approval|signature|delivery|export|deletion|billing_change|support_access
+  resourceType   String?
+  resourceId     String?
+  severity       String   @default("info") // info|warning|critical
+  metadataJson   String?
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model AuditActor {
+  id             String   @id @default(cuid())
+  name           String
+  email          String?
+  role           String?
+  events         AuditEvent[]
+}
+
+model DataRetentionPolicy {
+  id             String   @id @default(cuid())
+  organizationId String  @unique
+  audioRetentionDays Int  @default(90)
+  documentRetentionDays Int @default(2555) // 7 years typical
+  auditRetentionDays Int @default(2555)
+  secureDeletionEnabled Boolean @default(true)
+  legalHoldsCount Int @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model SecurityAlert {
+  id             String   @id @default(cuid())
+  organizationId String?
+  type           String   // bulk_download|impossible_travel|export_attempt|failed_login_burst|support_access_expired
+  severity       String   @default("medium")
+  userId         String?
+  detail         String
+  status         String   @default("open") // open|acknowledged|resolved
+  createdAt      DateTime @default(now())
+}

@@ -354,7 +354,7 @@ export function AuditSecurity() {
               {data.notifications.length === 0 ? (
                 <EmptyState icon={Bell} message="No notifications." />
               ) : (
-                <ul className="max-h-[60vh] divide-y divide-border overflow-y-auto">
+                <ul className="max-h-[60vh] divide-y divide-border mf-scroll overflow-y-auto">
                   {data.notifications.map((n, i) => (
                     <motion.li
                       key={n.id}

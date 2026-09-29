@@ -227,7 +227,7 @@ export function JobsKanban({ onOpenJob, refreshKey }: Props) {
   if (loading) return (
     <div>
       <PageHeader title="Jobs — Workflow Board" description="Drag-and-drop transcription jobs across the pipeline." icon={KanbanSquare} />
-      <div className="flex gap-3 overflow-x-auto pb-3">
+      <div className="flex gap-3 overflow-x-auto pb-3 mf-scroll-lg">
         {KANBAN_COLUMNS.map(c => (
           <div key={c.id} className="w-80 shrink-0">
             <Skeleton className="mb-2 h-12 w-full rounded-lg" />
@@ -326,7 +326,7 @@ export function JobsKanban({ onOpenJob, refreshKey }: Props) {
               setOverColumnId(overId.startsWith("col-") ? overId.slice(4) : null);
             }}
           >
-            <div className="flex gap-3 overflow-x-auto pb-3" style={{ scrollbarWidth: "thin" }}>
+            <div className="flex gap-3 overflow-x-auto pb-3 mf-scroll-lg" style={{ scrollbarWidth: "thin" }}>
               {KANBAN_COLUMNS.map(column => (
                 <Column
                   key={column.id}

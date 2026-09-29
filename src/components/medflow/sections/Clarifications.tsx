@@ -93,7 +93,7 @@ export function Clarifications() {
           {/* Left list */}
           <Card className="lg:col-span-1">
             <CardContent className="p-0">
-              <ul className="max-h-[80vh] divide-y divide-border overflow-y-auto">
+              <ul className="max-h-[80vh] divide-y divide-border mf-scroll overflow-y-auto">
                 {items.map((c, i) => {
                   const s = RISK_SEVERITY_STYLES[c.severity as keyof typeof RISK_SEVERITY_STYLES] ?? RISK_SEVERITY_STYLES.informational;
                   const isSel = selected?.id === c.id;
@@ -177,7 +177,7 @@ export function Clarifications() {
                 </div>
 
                 {/* Messages thread */}
-                <div className="flex-1 space-y-2 overflow-y-auto p-4">
+                <div className="flex-1 space-y-2 mf-scroll overflow-y-auto p-4">
                   {selected.messages.map(m => (
                     <div key={m.id} className={cn("flex gap-2", m.isInternal && "flex-row-reverse")}>
                       <Avatar className="h-7 w-7 border border-border">

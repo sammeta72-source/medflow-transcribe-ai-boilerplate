@@ -1,6 +1,8 @@
 "use client";
 // MedFlow App Shell — left sidebar (deep teal #0B5345) + top header (mint bg)
 // + sticky footer. Used for the entire in-app experience.
+// RBAC-aware (Task 8): nav items filtered by current role's permissions,
+// header has a role switcher that opens the Roles panel.
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -10,7 +12,7 @@ import {
   LayoutDashboard, LogOut, MessageCircleQuestion, type LucideIcon, Pencil, Plug,
   ScanLine, Search, Send, Settings, ShieldAlert, ShieldCheck, Stethoscope,
   Upload, Users, UserCircle2, X, Menu, Building2, ChevronDown, Moon, Sun,
-  Bot as BotIcon, Globe,
+  Bot as BotIcon, Globe, Lock, UserCog,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,12 +21,14 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { APP_NAME, NAV_GROUPS, NAV_ITEMS } from "@/lib/medflow/constants";
+import { useRbac } from "@/hooks/medflow/useRbac";
+import { RolesPanel } from "@/components/medflow/RolesPanel";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard, KanbanSquare, Inbox, Upload, FileText, MessageCircleQuestion,
   ShieldCheck, FileStack, BarChart3, Bot, Plug, Users, CreditCard, ShieldAlert,
   Settings, Activity, AlertTriangle, CalendarClock, ClipboardList, FileOutput,
-  ScanLine, Send, Stethoscope, UserCircle2, Pencil,
+  ScanLine, Send, Stethoscope, UserCircle2, Pencil, Lock, UserCog,
 };
 
 interface Props {
@@ -39,13 +43,22 @@ interface Props {
 
 export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNotifications, currentUser, onExit }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [rolesPanelOpen, setRolesPanelOpen] = useState(false);
 
+  // RBAC (Task 8) — derive the effective user from the store; fall back to the
+  // currentUser prop for backward compatibility if the store is empty.
+  const rbac = useRbac();
+  const effectiveUser = rbac.userName ? { name: rbac.userName, role: rbac.role, email: rbac.userEmail } : currentUser;
+
+  // Filter nav items by the current role's permissions. Always include the
+  // RBAC panel entry so the switcher is reachable.
   const navByGroup = useMemo(() => {
+    const filteredItems = NAV_ITEMS.filter(i => rbac.canAccessSection(i.id));
     return NAV_GROUPS.map(g => ({
       ...g,
-      items: NAV_ITEMS.filter(i => i.group === g.id),
-    }));
-  }, []);
+      items: filteredItems.filter(i => i.group === g.id),
+    })).filter(g => g.items.length > 0);
+  }, [rbac]);
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
@@ -123,15 +136,27 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
 
         {/* Footer */}
         <div className="border-t border-white/10 p-3">
+          <button
+            onClick={() => setRolesPanelOpen(true)}
+            className="mb-2 flex w-full items-center justify-between gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-left text-[10px] text-white/80 transition hover:bg-white/10"
+            title="Open Roles & Permissions panel"
+          >
+            <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider">
+              <Lock className="h-3 w-3 text-[#1ABC9C]" /> Role: {effectiveUser.role}
+            </span>
+            <span className="flex items-center gap-0.5 text-white/60">
+              Switch <ChevronDown className="h-3 w-3" />
+            </span>
+          </button>
           <div className="flex items-center gap-2 rounded-lg bg-white/5 p-2">
             <Avatar className="h-8 w-8 border border-white/20">
               <AvatarFallback className="bg-[#1ABC9C] text-[10px] font-bold text-white">
-                {currentUser.name.split(" ").map(s => s[0]).slice(0,2).join("")}
+                {effectiveUser.name.split(" ").map(s => s[0]).slice(0,2).join("")}
               </AvatarFallback>
             </Avatar>
             <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[11px] font-semibold text-white">{currentUser.name}</span>
-              <span className="truncate text-[9px] text-white/60">{currentUser.role}</span>
+              <span className="truncate text-[11px] font-semibold text-white">{effectiveUser.name}</span>
+              <span className="truncate text-[9px] text-white/60">{effectiveUser.role}</span>
             </div>
             <button onClick={onExit} className="rounded p-1 text-white/60 hover:bg-white/10 hover:text-white" title="Sign out">
               <LogOut className="h-3.5 w-3.5" />
@@ -194,9 +219,18 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
               )}
             </Button>
             <div className="h-5 w-px bg-border" />
+            <button
+              onClick={() => setRolesPanelOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold text-foreground transition hover:border-primary hover:bg-primary/5"
+              title="Switch role & view permissions"
+            >
+              <UserCog className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline">{effectiveUser.role}</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
             <Avatar className="h-7 w-7 border border-border">
               <AvatarFallback className="bg-primary text-[10px] font-bold text-primary-foreground">
-                {currentUser.name.split(" ").map(s => s[0]).slice(0,2).join("")}
+                {effectiveUser.name.split(" ").map(s => s[0]).slice(0,2).join("")}
               </AvatarFallback>
             </Avatar>
           </div>
@@ -226,6 +260,7 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
           </div>
         </footer>
       </div>
+      <RolesPanel open={rolesPanelOpen} onOpenChange={setRolesPanelOpen} />
     </div>
   );
 }

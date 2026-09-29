@@ -416,7 +416,7 @@ export function Integrations() {
               <FileJson className="h-4 w-4 text-secondary" /> FHIR R4 Bundle — JOB-2024-006
             </DialogTitle>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
+          <pre className="max-h-[60vh] mf-scroll overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
 {fhirPayload}
           </pre>
         </DialogContent>
@@ -430,7 +430,7 @@ export function Integrations() {
               <FileText className="h-4 w-4 text-secondary" /> HL7 v2 MDM — JOB-2024-006
             </DialogTitle>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
+          <pre className="max-h-[60vh] mf-scroll overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
 {hl7Payload}
           </pre>
         </DialogContent>

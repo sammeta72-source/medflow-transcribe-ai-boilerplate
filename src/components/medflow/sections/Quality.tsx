@@ -249,6 +249,7 @@ export function Quality() {
           {qaFindings.length === 0 ? (
             <EmptyState icon={UserCheck} message="No QA findings — pass clean!" />
           ) : (
+            <div className="max-h-[60vh] mf-scroll-lg overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -284,6 +285,7 @@ export function Quality() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

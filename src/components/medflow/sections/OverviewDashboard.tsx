@@ -246,7 +246,7 @@ export function OverviewDashboard() {
             {slaRiskJobs.length === 0 ? (
               <EmptyState icon={CheckCircle2} message="No at-risk jobs — all SLAs on track." />
             ) : (
-              <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              <ul className="max-h-80 space-y-2 mf-scroll overflow-y-auto pr-1">
                 {slaRiskJobs.slice(0, 10).map(j => {
                   const tone =
                     j.slaRiskLabel === "breach" ? "bg-red-500"
@@ -288,7 +288,7 @@ export function OverviewDashboard() {
             {data.auditEvents.length === 0 ? (
               <EmptyState icon={Activity} message="No recent activity." />
             ) : (
-              <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              <ul className="max-h-80 space-y-2 mf-scroll overflow-y-auto pr-1">
                 {data.auditEvents.map((e, i) => {
                   const tone =
                     e.severity === "critical" ? "bg-red-500"

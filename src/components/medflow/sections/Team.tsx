@@ -183,7 +183,7 @@ export function Team() {
               </CardTitle>
               <CardDescription className="text-xs">Mon–Sun · per-user shift blocks</CardDescription>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent className="mf-scroll-lg overflow-x-auto">
               <table className="w-full border-separate border-spacing-1 text-[11px]">
                 <thead>
                   <tr>
@@ -226,7 +226,7 @@ export function Team() {
               </CardTitle>
               <CardDescription className="text-xs">User × specialty proficiency</CardDescription>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent className="mf-scroll-lg overflow-x-auto">
               <table className="w-full text-[11px]">
                 <thead>
                   <tr>

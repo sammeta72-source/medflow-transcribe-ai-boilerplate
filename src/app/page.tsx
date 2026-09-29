@@ -6,6 +6,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { AppShell } from "@/components/medflow/AppShell";
+import { VoiceChatbot } from "@/components/medflow/VoiceChatbot";
 import { Landing } from "@/components/medflow/sections/Landing";
 import { OverviewDashboard } from "@/components/medflow/sections/OverviewDashboard";
 import { JobsKanban } from "@/components/medflow/sections/JobsKanban";
@@ -66,7 +67,13 @@ export default function Home() {
   }, []);
 
   if (!entered) {
-    return <Landing onEnter={() => setEntered(true)} />;
+    return (
+      <>
+        <Landing onEnter={() => setEntered(true)} />
+        {/* Floating voice-enabled AI chatbot (additive overlay — Task 7) */}
+        <VoiceChatbot />
+      </>
+    );
   }
 
   return (
@@ -152,6 +159,9 @@ export default function Home() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Floating voice-enabled AI chatbot (additive overlay — Task 7) */}
+      <VoiceChatbot />
     </AppShell>
   );
 }

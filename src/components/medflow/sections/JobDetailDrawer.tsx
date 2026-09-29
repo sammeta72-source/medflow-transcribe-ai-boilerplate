@@ -174,7 +174,7 @@ export function JobDetailDrawer({ job, onClose, onAdvanced }: Props) {
               </TabsList>
             </div>
 
-            <ScrollArea className="flex-1 overflow-y-auto">
+            <ScrollArea className="flex-1 mf-scroll overflow-y-auto">
               {/* ── Overview ─────────────────────────── */}
               <TabsContent value="overview" className="m-0 p-4">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -277,7 +277,7 @@ export function JobDetailDrawer({ job, onClose, onAdvanced }: Props) {
                   </Badge>
                   <Badge variant="outline" className="text-[10px]">whisper-large-v3</Badge>
                 </div>
-                <pre className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 font-mono text-[12px] leading-relaxed text-foreground">
+                <pre className="max-h-[60vh] mf-scroll overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 font-mono text-[12px] leading-relaxed text-foreground">
 {job.transcriptText ?? "No transcript yet — run the Transcription Agent."}
                 </pre>
               </TabsContent>
@@ -347,7 +347,7 @@ export function JobDetailDrawer({ job, onClose, onAdvanced }: Props) {
               <FileJson className="h-4 w-4 text-secondary" /> FHIR R4 Bundle — {job.jobNumber}
             </DialogTitle>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
+          <pre className="max-h-[60vh] mf-scroll overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
 {fhirPayload}
           </pre>
         </DialogContent>
@@ -361,7 +361,7 @@ export function JobDetailDrawer({ job, onClose, onAdvanced }: Props) {
               <FileText className="h-4 w-4 text-secondary" /> HL7 v2 MDM Message — {job.jobNumber}
             </DialogTitle>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
+          <pre className="max-h-[60vh] mf-scroll overflow-y-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
 {hl7Payload}
           </pre>
         </DialogContent>

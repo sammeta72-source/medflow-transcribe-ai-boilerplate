@@ -8,9 +8,11 @@ export const APP_TAGLINE =
 export const POSITIONING =
   "MedFlow Transcribe AI helps healthcare organizations and transcription service teams securely transform clinical dictation into review-ready documentation — using AI automation, human quality control, SLA intelligence, and EHR-ready delivery.";
 
-// FastAPI ai-agents-service port (called via Caddy gateway with ?XTransformPort=8000)
+// FastAPI ai-agents-service — reached through the Next.js catch-all proxy at
+// /api/ai/<path> (which forwards to localhost:8000 server-side). This works
+// whether the app is accessed via the Caddy gateway OR the dev server directly.
 export const AGENTS_PORT = 8000;
-export const agentsUrl = (path: string) => `/api${path}?XTransformPort=${AGENTS_PORT}`;
+export const agentsUrl = (path: string) => `/api/ai${path}`;
 
 // ── Navigation ────────────────────────────────────────────────────────────
 export const NAV_ITEMS: NavItem[] = [

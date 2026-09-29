@@ -204,6 +204,7 @@ export function Billing() {
             {invoices.length === 0 ? (
               <EmptyState icon={CreditCard} message="No invoices yet." />
             ) : (
+              <div className="max-h-[60vh] mf-scroll-lg overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -238,6 +239,7 @@ export function Billing() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

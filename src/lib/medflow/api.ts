@@ -1,8 +1,19 @@
-// MedFlow Transcribe AI — API client (Next.js route handlers + FastAI proxy)
-// All FastAPI calls go through the Caddy gateway using ?XTransformPort=8000.
+// MedFlow Transcribe AI — API client (Next.js route handlers + FastAPI proxy).
+// All FastAPI calls go through the Next.js catch-all proxy at /api/ai/<path>,
+// which forwards to http://localhost:8000/api/<path> server-side. This works
+// whether the app is accessed via the Caddy gateway (port 81) OR the Next.js
+// dev server directly (port 3000) — fixing the previous "Failed to load" 404s.
 
-import { agentsUrl } from "./constants";
 import type { AiAgent, AgentRun, DbConnector, DbTestResult } from "./types";
+
+// Build a URL rooted at the Next.js proxy. Keeps the old `agentsUrl` import
+// working for any external callers, but our own functions use the proxy.
+function aiUrl(path: string): string {
+  return `/api/ai${path}`;
+}
+
+// Backward-compatible export (some section components may still import agentsUrl).
+export const agentsUrl = aiUrl;
 
 const AGENT_RUN_STORE_KEY = "medflow.agent.runs.v1";
 

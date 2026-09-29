@@ -288,7 +288,7 @@ export function AIAgents() {
                         {expanded === a.id ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <pre className="mt-1 max-h-44 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[10px] leading-relaxed text-foreground">
+                        <pre className="mt-1 max-h-44 mf-scroll overflow-y-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[10px] leading-relaxed text-foreground">
 {JSON.stringify(a.recent_runs[0]?.output ?? {}, null, 2)}
                         </pre>
                       </CollapsibleContent>

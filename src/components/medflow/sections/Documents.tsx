@@ -89,6 +89,7 @@ export function Documents() {
       ) : (
         <Card>
           <CardContent className="p-0">
+            <div className="max-h-[70vh] mf-scroll-lg overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -142,6 +143,7 @@ export function Documents() {
                 })}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       )}

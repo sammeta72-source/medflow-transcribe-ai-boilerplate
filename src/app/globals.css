@@ -260,6 +260,42 @@
   .mf-scroll-lg::-webkit-scrollbar-corner {
     background: transparent;
   }
+  /* Dark-background scrollbar variant — for the deep-teal sidebar nav.
+     High-contrast light track so the gutter is a VISIBLE scrollbar affordance
+     against the #0B5345 background. Sea-green thumb sits on top. */
+  .mf-scroll-dark {
+    scrollbar-width: auto;
+    scrollbar-color: #1ABC9C rgba(232, 248, 245, 0.85);
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
+  .mf-scroll-dark::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .mf-scroll-dark::-webkit-scrollbar-track {
+    background: rgba(232, 248, 245, 0.85);
+    border-radius: 9999px;
+    margin: 6px 3px;
+    border: 1px solid rgba(11, 83, 69, 0.4);
+  }
+  .mf-scroll-dark::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #1ABC9C 0%, #0B5345 100%);
+    border-radius: 9999px;
+    border: 2px solid rgba(232, 248, 245, 0.85);
+    min-height: 50px;
+  }
+  .mf-scroll-dark::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #48d4b8 0%, #0B5345 100%);
+  }
+  .mf-scroll-dark::-webkit-scrollbar-thumb:active {
+    background: #0B5345;
+  }
+  .mf-scroll-dark::-webkit-scrollbar-corner {
+    background: transparent;
+  }
   /* Recording dot pulse */
   @keyframes mf-rec-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }

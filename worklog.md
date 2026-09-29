@@ -191,3 +191,21 @@ Stage Summary:
   • Scrollbar = CSS utility class additions (no logic changes)
   • Chatbot = new floating component + 4 new API routes (mounted in page.tsx, no section logic touched)
   • RBAC = new store + hook + 2 new components (AppShell gained a switcher button + nav filter; section components unchanged, can opt-in to RoleGate)
+
+---
+Task ID: 9 (sidebar scrollbar)
+Agent: main (Z.ai Code)
+Task: Provide a vertical scrollbar to the left options panel (sidebar nav).
+
+Work Log:
+- Replaced the Radix <ScrollArea> in AppShell sidebar (which uses an invisible overlay scrollbar) with a plain <div className="mf-scroll-dark min-h-0 flex-1 px-2"> wrapper around the <nav>.
+- Added the .mf-scroll-dark CSS utility in globals.css: high-contrast light-mint track (rgba(232,248,245,0.85)) on the deep-teal sidebar with a sea-green→teal gradient thumb (#1ABC9C → #0B5345). Uses overflow-y:scroll + scrollbar-gutter:stable so the track is ALWAYS visible (reserved gutter) even when content fits.
+- KEY FIX: added min-h-0 to the flex child. Without min-h-0, a flexbox child grows to fit its content and never actually overflows — so the scrollbar thumb never renders. min-h-0 lets the child shrink below content size, enabling real scroll behavior.
+- Removed the now-unused ScrollArea import from AppShell.
+- Verified via agent-browser at two viewports:
+  • Short (1440x650): sea-green thumb clearly visible on a light mint track running down the right edge of the deep-teal sidebar (content overflows → thumb renders).
+  • Tall (1440x900): light-mint scrollbar gutter reserved and visible on the right edge of the sidebar (scrollbar-gutter:stable reserves the space).
+- Lint: 0 errors (4 pre-existing harmless warnings unchanged).
+
+Stage Summary:
+- The left sidebar (deep teal #0B5345) now has a styled vertical scrollbar: light-mint track + sea-green gradient thumb, always visible. Scrollable nav on smaller screens; reserved gutter on tall screens. Consistent with the .mf-scroll sea-green scrollbar style used across the rest of the app.

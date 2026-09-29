@@ -18,7 +18,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { APP_NAME, NAV_GROUPS, NAV_ITEMS } from "@/lib/medflow/constants";
 import { useRbac } from "@/hooks/medflow/useRbac";
@@ -99,8 +98,11 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
           </button>
         </div>
 
-        {/* Nav */}
-        <ScrollArea className="flex-1 px-2">
+        {/* Nav — styled vertical scrollbar (mf-scroll-dark) so the sea-green
+            thumb + visible track is always present on the deep-teal sidebar.
+           min-h-0 is REQUIRED so the flex child can shrink below its content
+           size and actually scroll (otherwise it grows to fit, no scrollbar). */}
+        <div className="mf-scroll-dark min-h-0 flex-1 px-2">
           <nav className="flex flex-col gap-4 pb-4">
             {navByGroup.map(group => (
               <div key={group.id} className="flex flex-col gap-0.5">
@@ -132,7 +134,7 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
               </div>
             ))}
           </nav>
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
         <div className="border-t border-white/10 p-3">

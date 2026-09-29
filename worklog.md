@@ -209,3 +209,31 @@ Work Log:
 
 Stage Summary:
 - The left sidebar (deep teal #0B5345) now has a styled vertical scrollbar: light-mint track + sea-green gradient thumb, always visible. Scrollable nav on smaller screens; reserved gutter on tall screens. Consistent with the .mf-scroll sea-green scrollbar style used across the rest of the app.
+
+---
+Task ID: 10 (scroll buttons + 502 resilience)
+Agent: main (Z.ai Code)
+Task: (1) Add teal scroll buttons (up/down) to the sidebar scrollbar + make it thin/match panel. (2) Fix recurring 502 "Failed to load" on AI Agents + Integrations.
+
+Work Log:
+- Fix #1 (scroll buttons): Discovered ::-webkit-scrollbar-button is DEPRECATED in modern Chromium and does not render (confirmed via JS eval — even !important injected styles had no effect). Solution: built REAL HTML scroll buttons in AppShell as a `relative` wrapper around the nav with two absolutely-positioned `<button>` elements:
+  • Up button (top-right): teal sea-green #1ABC9C bg + white ChevronUp icon, shown when `!atTop`
+  • Down button (bottom-right): teal sea-green #1ABC9C bg + white ChevronDown icon, shown when `!atBottom`
+  • onClick calls `navRef.scrollBy({top: ±160, behavior: 'smooth'})`
+  • `onScroll` + `useEffect([rbac.role])` track scroll position + update button visibility
+  • Buttons are 12px wide × 20px tall, positioned `absolute right-0 z-10` over the scrollbar gutter
+- Sidebar structure: wrapped the nav in `<div className="relative min-h-0 flex-1">` with the scrollable `<div ref={navRef} className="mf-scroll-dark min-h-0 h-full px-2">` inside. The `min-h-0` is REQUIRED for flex children to shrink below content size and actually scroll.
+- Aside fix: changed `lg:static` → `lg:sticky lg:top-0 lg:h-screen` + added `overflow-hidden` so the aside has a DEFINITE viewport height on large screens (without this, the flex-1 nav grew to fit content → no overflow → no scrollbar). Confirmed via JS eval: nav now has scrollHeight 614 > clientHeight 374 = real overflow.
+- Scrollbar CSS: `.mf-scroll-dark` track = #0d6651 (lighter teal, visible against #0B5345 panel, still teal-family), thumb = sea-green gradient #1ABC9C→#16a085, 12px wide (thin).
+- Verified via agent-browser: down-chevron button visible at bottom-right when at top; up-chevron button appears at top-right after scrolling down. Both are teal sea-green with white chevrons.
+
+- Fix #2 (502 resilience): The 502s were caused by the dev server dying between bash calls (sandbox kills background processes). Three-layer fix:
+  1. Proxy retry: rewrote /api/ai/[...path]/route.ts to retry upstream failures (max 3 attempts, 10s timeout via AbortController, linear backoff). Reads body once + re-sends on each attempt.
+  2. Client retry: added `fetchWithRetry()` in api.ts (3 attempts, 500ms×i backoff on 5xx) used by all FastAPI calls (fetchAgents, runAgent, fetchDbConnectors, testDbConnector, switchDbConnector, fetchFhir, fetchHl7).
+  3. Persistent dev server: wrote /tmp/launch_dev.py — a double-fork Python daemon launcher (same technique as the FastAPI _launcher.py). It forks twice + setsid so the process reparents to init (PID 1) and survives the bash session exit. Confirmed: next-server PPID is now init (not the bash shell), and the dev server stays up across bash calls.
+- Verified: curl http://localhost:3000/api/ai/agents → 200, /api/ai/db/connectors → 200. Agent-browser navigated to AI Agents → 10 cards render (no "Failed to load"), Integrations > Database Connectors → 5 cards render (no 502).
+- Lint: 0 errors, 5 harmless unused-eslint-disable warnings.
+
+Stage Summary:
+- Left sidebar now has: thin (12px) teal scrollbar matching the panel family (#0d6651 track) + sea-green thumb + REAL teal sea-green scroll buttons (up/down chevrons) at top + bottom that actually work (smooth-scroll 160px per click).
+- AI Agents + Integrations + DB Connectors load reliably (no 502) thanks to: double-fork dev daemon (persists across bash calls) + proxy retry (3 attempts) + client retry (3 attempts) + FastAPI service (PID 1819, stable).

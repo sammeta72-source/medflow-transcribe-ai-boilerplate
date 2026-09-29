@@ -3,16 +3,18 @@
 // + sticky footer. Used for the entire in-app experience.
 // RBAC-aware (Task 8): nav items filtered by current role's permissions,
 // header has a role switcher that opens the Roles panel.
+// Custom teal scroll buttons (up/down) on the sidebar nav — real HTML
+// buttons because ::-webkit-scrollbar-button is deprecated in modern Chromium.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   Activity, AlertTriangle, BarChart3, Bell, Bot, CalendarClock, ClipboardList,
   CreditCard, FileStack, FileText, FileOutput, HelpCircle, Inbox, KanbanSquare,
   LayoutDashboard, LogOut, MessageCircleQuestion, type LucideIcon, Pencil, Plug,
   ScanLine, Search, Send, Settings, ShieldAlert, ShieldCheck, Stethoscope,
-  Upload, Users, UserCircle2, X, Menu, Building2, ChevronDown, Moon, Sun,
-  Bot as BotIcon, Globe, Lock, UserCog,
+  Upload, Users, UserCircle2, X, Menu, Building2, ChevronDown, ChevronUp,
+  Moon, Sun, Bot as BotIcon, Globe, Lock, UserCog,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +45,25 @@ interface Props {
 export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNotifications, currentUser, onExit }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [rolesPanelOpen, setRolesPanelOpen] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({ atTop: true, atBottom: false });
+
+  // Track scroll position to show/hide the up/down scroll buttons
+  const updateScrollState = () => {
+    const el = navRef.current;
+    if (!el) return;
+    setScrollState({
+      atTop: el.scrollTop <= 2,
+      atBottom: el.scrollTop + el.clientHeight >= el.scrollHeight - 2,
+    });
+  };
+
+  const scrollNav = (dir: "up" | "down") => {
+    const el = navRef.current;
+    if (!el) return;
+    el.scrollBy({ top: dir === "up" ? -160 : 160, behavior: "smooth" });
+    setTimeout(updateScrollState, 250);
+  };
 
   // RBAC (Task 8) — derive the effective user from the store; fall back to the
   // currentUser prop for backward compatibility if the store is empty.
@@ -59,12 +80,21 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
     })).filter(g => g.items.length > 0);
   }, [rbac]);
 
+  // Re-evaluate scroll state on mount + whenever the nav items change (role switch
+  // changes the number of visible items, which changes whether scrolling is possible).
+  useEffect(() => {
+    updateScrollState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rbac.role]);
+
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
-      {/* Sidebar — deep teal */}
+      {/* Sidebar — deep teal. lg:sticky lg:top-0 lg:h-screen gives a definite
+          viewport height so the inner nav (flex-1 min-h-0 mf-scroll-dark) can
+          actually scroll instead of growing to fit content. */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#0B5345] text-white transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden bg-[#0B5345] text-white transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
@@ -98,11 +128,27 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
           </button>
         </div>
 
-        {/* Nav — styled vertical scrollbar (mf-scroll-dark) so the sea-green
-            thumb + visible track is always present on the deep-teal sidebar.
-           min-h-0 is REQUIRED so the flex child can shrink below its content
-           size and actually scroll (otherwise it grows to fit, no scrollbar). */}
-        <div className="mf-scroll-dark min-h-0 flex-1 px-2">
+        {/* Nav — styled vertical scrollbar (mf-scroll-dark) + custom teal
+            scroll buttons (up/down) at the top + bottom of the nav. The
+            buttons are REAL HTML elements because ::-webkit-scrollbar-button
+            is deprecated in modern Chromium and doesn't render. */}
+        <div className="relative min-h-0 flex-1">
+          {/* Up scroll button — teal sea-green with white up-chevron */}
+          {!scrollState.atTop && (
+            <button
+              type="button"
+              onClick={() => scrollNav("up")}
+              aria-label="Scroll nav up"
+              className="absolute right-0 top-0 z-10 grid h-5 w-[12px] place-items-center bg-[#1ABC9C] text-white shadow-md transition hover:bg-[#16a085] active:bg-[#0B5345]"
+            >
+              <ChevronUp className="h-3 w-3" strokeWidth={3} />
+            </button>
+          )}
+          <div
+            ref={navRef}
+            onScroll={updateScrollState}
+            className="mf-scroll-dark min-h-0 h-full px-2"
+          >
           <nav className="flex flex-col gap-4 pb-4">
             {navByGroup.map(group => (
               <div key={group.id} className="flex flex-col gap-0.5">
@@ -134,6 +180,18 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
               </div>
             ))}
           </nav>
+          </div>
+          {/* Down scroll button — teal sea-green with white down-chevron */}
+          {!scrollState.atBottom && (
+            <button
+              type="button"
+              onClick={() => scrollNav("down")}
+              aria-label="Scroll nav down"
+              className="absolute bottom-0 right-0 z-10 grid h-5 w-[12px] place-items-center bg-[#1ABC9C] text-white shadow-md transition hover:bg-[#16a085] active:bg-[#0B5345]"
+            >
+              <ChevronDown className="h-3 w-3" strokeWidth={3} />
+            </button>
+          )}
         </div>
 
         {/* Footer */}

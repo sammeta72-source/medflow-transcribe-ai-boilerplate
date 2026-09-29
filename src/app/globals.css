@@ -261,11 +261,14 @@
     background: transparent;
   }
   /* Dark-background scrollbar variant — for the deep-teal sidebar nav.
-     High-contrast light track so the gutter is a VISIBLE scrollbar affordance
-     against the #0B5345 background. Sea-green thumb sits on top. */
+     THIN (10px) and MATCHES the left panel colour (#0B5345 deep teal track)
+     with teal sea-green scroll BUTTONS (up/down arrows) at top + bottom.
+     The thumb is a brighter sea-green so it stands out against the track.
+     NB: ::-webkit-scrollbar-button is WebKit/Chromium-only; Firefox falls back
+     to scrollbar-color (no arrow buttons, but the thumb still works). */
   .mf-scroll-dark {
-    scrollbar-width: auto;
-    scrollbar-color: #1ABC9C rgba(232, 248, 245, 0.85);
+    scrollbar-width: thin;
+    scrollbar-color: #1ABC9C #0d6651;
     overflow-y: scroll;
     scrollbar-gutter: stable;
   }
@@ -275,23 +278,64 @@
     -webkit-appearance: none;
     appearance: none;
   }
+  /* Track — lighter teal (#0d6651) so the scrollbar is clearly visible
+     against the #0B5345 panel while staying in the teal color family. */
   .mf-scroll-dark::-webkit-scrollbar-track {
-    background: rgba(232, 248, 245, 0.85);
-    border-radius: 9999px;
-    margin: 6px 3px;
-    border: 1px solid rgba(11, 83, 69, 0.4);
+    background: #0d6651;
+    border-radius: 0;
+    margin: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
   }
+  /* Thumb — bright sea-green gradient, clearly visible on the dark teal track. */
   .mf-scroll-dark::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #1ABC9C 0%, #0B5345 100%);
+    background: linear-gradient(180deg, #1ABC9C 0%, #16a085 100%);
     border-radius: 9999px;
-    border: 2px solid rgba(232, 248, 245, 0.85);
-    min-height: 50px;
+    border: 2px solid #0B5345;
+    min-height: 40px;
   }
   .mf-scroll-dark::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #48d4b8 0%, #0B5345 100%);
+    background: linear-gradient(180deg, #48d4b8 0%, #1ABC9C 100%);
   }
   .mf-scroll-dark::-webkit-scrollbar-thumb:active {
     background: #0B5345;
+  }
+  /* ── Scroll BUTTONS (up/down arrows) — teal sea-green with white arrows ── */
+  /* Top button — up arrow. Height 14px so the buttons are easy to click. */
+  .mf-scroll-dark::-webkit-scrollbar-button:vertical:start {
+    background: #1ABC9C url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2010%2010'%3E%3Cpath%20d='M5%202%20L1%207%20L9%207%20Z'%20fill='white'/%3E%3C/svg%3E") no-repeat center / 60% 60%;
+    height: 14px;
+    width: 10px;
+    border-radius: 0;
+    display: block;
+    border-bottom: 1px solid #0B5345;
+  }
+  .mf-scroll-dark::-webkit-scrollbar-button:vertical:start:hover {
+    background-color: #16a085;
+  }
+  .mf-scroll-dark::-webkit-scrollbar-button:vertical:start:active {
+    background-color: #0B5345;
+  }
+  /* Bottom button — down arrow. */
+  .mf-scroll-dark::-webkit-scrollbar-button:vertical:end {
+    background: #1ABC9C url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2010%2010'%3E%3Cpath%20d='M5%208%20L1%203%20L9%203%20Z'%20fill='white'/%3E%3C/svg%3E") no-repeat center / 60% 60%;
+    height: 14px;
+    width: 10px;
+    border-radius: 0;
+    display: block;
+    border-top: 1px solid #0B5345;
+  }
+  .mf-scroll-dark::-webkit-scrollbar-button:vertical:end:hover {
+    background-color: #16a085;
+  }
+  .mf-scroll-dark::-webkit-scrollbar-button:vertical:end:active {
+    background-color: #0B5345;
+  }
+  /* Hide the empty horizontal-only button slots we don't use. */
+  .mf-scroll-dark::-webkit-scrollbar-button:horizontal:start,
+  .mf-scroll-dark::-webkit-scrollbar-button:horizontal:end,
+  .mf-scroll-dark::-webkit-scrollbar-button:vertical:decrement:active,
+  .mf-scroll-dark::-webkit-scrollbar-button:vertical:increment:active {
+    display: none;
   }
   .mf-scroll-dark::-webkit-scrollbar-corner {
     background: transparent;

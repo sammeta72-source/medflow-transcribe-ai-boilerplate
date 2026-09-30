@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedFlow Transcribe AI — Monetization & Pricing Strategy</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #E8F8F5; font-family: 'Inter', sans-serif; color: #17202A; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  :root {
+    --primary: #0B5345;
+    --primary-light: #0d6651;
+    --secondary: #1ABC9C;
+    --secondary-light: #16a085;
+    --dark: #17202A;
+    --bg: #E8F8F5;
+    --bg-soft: #f0faf8;
+    --card: #ffffff;
+    --border: #d4e6e0;
+    --muted: #5b6770;
+    --text: #17202A;
+  }
+
+  .page { width: 210mm; min-height: 297mm; padding: 20mm 18mm; background: #ffffff; position: relative; page-break-after: always; break-after: page; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+
+  /* Cover page */
+  .cover { background: linear-gradient(135deg, #0B5345 0%, #0d6651 55%, #1ABC9C 100%); color: white; display: flex; flex-direction: column; justify-content: space-between; padding: 0; overflow: hidden; }
+  .cover-inner { padding: 30mm 22mm; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .cover .brand { font-size: 12px; font-weight: 600; letter-spacing: 2px; color: #1ABC9C; text-transform: uppercase; margin-bottom: 16px; }
+  .cover h1 { font-size: 42px; font-weight: 800; line-height: 1.15; color: white; margin-bottom: 12px; }
+  .cover .subtitle { font-size: 16px; color: #E8F8F5; line-height: 1.5; max-width: 140mm; margin-bottom: 32px; }
+  .cover-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }
+  .cover-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(26,188,156,0.4); border-radius: 6px; padding: 6px 14px; font-size: 11px; font-weight: 600; color: white; }
+  .cover-meta { font-size: 11px; color: #1ABC9C; line-height: 1.8; }
+  .cover-footer { padding: 14mm 22mm; border-top: 1px solid rgba(255,255,255,0.1); }
+  .cover-footer .meta-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: rgba(255,255,255,0.6); }
+
+  /* Headings */
+  h2 { font-size: 22px; font-weight: 700; color: var(--primary); margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid var(--secondary); }
+  h3 { font-size: 14px; font-weight: 600; color: var(--secondary-light); margin-top: 16px; margin-bottom: 6px; }
+  h4 { font-size: 12px; font-weight: 600; color: var(--dark); margin-top: 12px; margin-bottom: 4px; }
+  p { font-size: 10.5px; line-height: 1.6; color: var(--text); margin-bottom: 8px; text-align: justify; }
+  .lead { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5px; }
+  th { background: var(--primary); color: white; font-weight: 600; text-align: left; padding: 8px 10px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--bg); }
+  .price { font-weight: 700; color: var(--primary); }
+
+  /* Cards */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+  .card-body { font-size: 10px; line-height: 1.5; color: var(--muted); }
+  .card .price-tag { font-size: 24px; font-weight: 800; color: var(--secondary); }
+  .card .price-period { font-size: 11px; color: var(--muted); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  /* Pricing tier cards */
+  .tier-card { border-radius: 10px; padding: 18px; position: relative; overflow: hidden; }
+  .tier-starter { background: #ffffff; border: 2px solid var(--border); }
+  .tier-pro { background: #ffffff; border: 2px solid var(--secondary); box-shadow: 0 4px 20px rgba(26,188,156,0.15); }
+  .tier-enterprise { background: var(--primary); color: white; }
+  .tier-enterprise .tier-name, .tier-enterprise .tier-price, .tier-enterprise .tier-desc { color: white; }
+  .tier-enterprise .tier-features li { color: rgba(255,255,255,0.85); }
+  .tier-name { font-size: 16px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+  .tier-price { font-size: 32px; font-weight: 800; color: var(--secondary); margin: 8px 0; }
+  .tier-period { font-size: 11px; color: var(--muted); }
+  .tier-desc { font-size: 10px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+  .tier-features { list-style: none; font-size: 9.5px; line-height: 1.7; }
+  .tier-features li::before { content: "✓ "; color: var(--secondary); font-weight: 700; }
+  .tier-enterprise .tier-features li::before { color: #1ABC9C; }
+  .popular-badge { position: absolute; top: 0; right: 0; background: var(--secondary); color: white; font-size: 8px; font-weight: 700; padding: 4px 10px; border-radius: 0 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Stat boxes */
+  .stat-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; }
+  .stat-value { font-size: 28px; font-weight: 800; color: var(--secondary); }
+  .stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+  /* Callout */
+  .callout { background: var(--bg); border-left: 4px solid var(--secondary); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 12px 0; }
+  .callout-title { font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+  .callout-text { font-size: 10px; color: var(--muted); line-height: 1.5; }
+
+  /* Footer */
+  .page-footer { position: absolute; bottom: 8mm; left: 18mm; right: 18mm; display: flex; justify-content: space-between; font-size: 8px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 6px; }
+  .page-footer .brand { font-weight: 600; color: var(--primary); }
+
+  /* Lists */
+  ul { font-size: 10px; line-height: 1.6; color: var(--text); padding-left: 18px; margin-bottom: 8px; }
+  ul li { margin-bottom: 4px; }
+  ul li::marker { color: var(--secondary); }
+
+  /* Method badge */
+  .method-badge { display: inline-block; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 8px; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Section number */
+  .section-num { display: inline-block; background: var(--secondary); color: white; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-right: 8px; vertical-align: middle; }
+
+  /* Avoid breaking inside cards/table rows */
+  .card, .tier-card, .stat-box, tr, .callout { break-inside: avoid; page-break-inside: avoid; }
+  h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ── COVER PAGE ── -->
+<div class="page cover">
+  <div class="cover-inner">
+    <div class="brand">MedFlow Transcribe AI</div>
+    <h1>Monetization &<br>Pricing Strategy</h1>
+    <div class="subtitle">A comprehensive white-label monetization framework for the global healthcare transcription BPO market — covering SaaS subscriptions, usage-based pricing, licensing, revenue sharing, professional services, and add-on modules.</div>
+    <div class="cover-badges">
+      <span class="cover-badge">White-Label SaaS</span>
+      <span class="cover-badge">B2B Enterprise</span>
+      <span class="cover-badge">Multi-Region</span>
+      <span class="cover-badge">HIPAA / GDPR</span>
+      <span class="cover-badge">FHIR / HL7</span>
+      <span class="cover-badge">AI Agents</span>
+    </div>
+    <div class="cover-meta">
+      Document Version 1.0 · USD Pricing · International Market<br>
+      Prepared for: Partners, Resellers, BPO Operators, Healthcare Systems<br>
+      Audience: Sales, Finance, Business Development, Channel Partners
+    </div>
+  </div>
+  <div class="cover-footer">
+    <div class="meta-row">
+      <span>© 2026 MedFlow Transcribe AI</span>
+      <span>Confidential — For Partner Distribution</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAGE 1: EXECUTIVE SUMMARY ── -->
+<div class="page">
+  <h2>1. Executive Summary</h2>
+  <p class="lead">MedFlow Transcribe AI is an AI-assisted medical transcription operations platform designed for white-label distribution to transcription service organizations (TSOs), healthcare BPOs, hospitals, and health systems worldwide. This document defines the complete monetization framework — pricing models, licensing terms, revenue-sharing schemes, and go-to-market positioning — optimized for international market expansion.</p>
+
+  <p>The global medical transcription market is valued at approximately <strong>$70 billion USD</strong> (2026 estimate) and is growing at a CAGR of 5.8% driven by the shift from on-premise dictation systems to cloud-based, AI-assisted transcription platforms. The market is highly fragmented — the top 10 TSOs hold less than 25% market share — creating a significant opportunity for a white-labeled platform that enables regional and specialty-specific BPOs to compete with modern AI capabilities without building their own technology stack.</p>
+
+  <p>MedFlow's monetization strategy is built on <strong>seven complementary revenue streams</strong>: (1) SaaS subscription tiers, (2) usage-based metering (audio minutes + AI processing), (3) white-label licensing fees, (4) revenue-sharing partner program, (5) professional services + implementation, (6) add-on module marketplace, and (7) API access for enterprise integrators. This multi-stream approach maximizes revenue per customer while accommodating clients of all sizes — from solo transcriptionists to multi-national health systems.</p>
+
+  <div class="callout">
+    <div class="callout-title">Target Revenue Profile (Year 3)</div>
+    <div class="callout-text">$24M ARR across 400+ active tenants · 60% subscription + 25% usage + 10% services + 5% licensing · Gross margin: 78% · LTV:CAC ratio: 5.2:1 · Net revenue retention: 118%</div>
+  </div>
+
+  <h3>1.1 Market Opportunity at a Glance</h3>
+  <table>
+    <thead>
+      <tr><th>Market Segment</th><th>TAM (USD)</th><th>Target Share</th><th>Avg. Contract Value</th><th>Sales Cycle</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Small clinics & solo providers</td><td>$8.2B</td><td>0.5%</td><td>$1,800/yr</td><td>2-4 weeks</td></tr>
+      <tr><td>Multi-provider clinics & TSOs</td><td>$22.5B</td><td>1.2%</td><td>$24,000/yr</td><td>1-3 months</td></tr>
+      <tr><td>Hospitals & health systems</td><td>$28.0B</td><td>0.8%</td><td>$180,000/yr</td><td>3-9 months</td></tr>
+      <tr><td>Offshore BPO operators</td><td>$11.3B</td><td>2.0%</td><td>$96,000/yr</td><td>2-6 months</td></tr>
+      <tr><td><strong>Total Addressable Market</strong></td><td><strong>$70.0B</strong></td><td><strong>~$24M ARR (Y3)</strong></td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid-4" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px;">
+    <div class="stat-box"><div class="stat-value">$70B</div><div class="stat-label">Global TAM</div></div>
+    <div class="stat-box"><div class="stat-value">7</div><div class="stat-label">Revenue Streams</div></div>
+    <div class="stat-box"><div class="stat-value">78%</div><div class="stat-label">Gross Margin</div></div>
+    <div class="stat-box"><div class="stat-value">5.2:1</div><div class="stat-label">LTV:CAC</div></div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Monetization & Pricing Strategy</span><span>Page 1</span></div>
+</div>
+
+<!-- ── PAGE 2: MONETIZATION MODELS OVERVIEW ── -->
+<div class="page">
+  <h2>2. Monetization Models Overview</h2>
+  <p>MedFlow supports seven distinct monetization models that can be combined per-client. Each model targets a different buyer persona and budget structure, enabling partners to flexibly package the platform for their specific market.</p>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Model</th><th>Description</th><th>Target Buyer</th><th>Revenue Mix</th><th>Margin</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td><strong>SaaS Subscription</strong></td><td>Tiered monthly/annual plans with included minutes + seats</td><td>Clinics, TSOs, BPOs</td><td>60%</td><td>82%</td></tr>
+      <tr><td>2</td><td><strong>Usage-Based Metering</strong></td><td>Per-audio-minute + per-AI-agent-run beyond plan limits</td><td>All tiers</td><td>25%</td><td>85%</td></tr>
+      <tr><td>3</td><td><strong>White-Label Licensing</strong></td><td>One-time setup + annual license for branded instance</td><td>BPOs, Regional partners</td><td>5%</td><td>90%</td></tr>
+      <tr><td>4</td><td><strong>Revenue-Sharing Partner</strong></td><td>15-30% revenue share on subscription + usage</td><td>Resellers, channel partners</td><td>—</td><td>—</td></tr>
+      <tr><td>5</td><td><strong>Professional Services</strong></td><td>Implementation, training, custom integrations, EHR onboarding</td><td>Hospitals, health systems</td><td>7%</td><td>45%</td></tr>
+      <tr><td>6</td><td><strong>Add-On Module Marketplace</strong></td><td>Specialty packs, compliance modules, analytics add-ons</td><td>All tiers</td><td>2%</td><td>88%</td></tr>
+      <tr><td>7</td><td><strong>API Access (Developer Tier)</strong></td><td>Per-call or bulk API access for integrators</td><td>EHR vendors, research</td><td>1%</td><td>92%</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.1 Model Selection Matrix</h3>
+  <p>Partners and clients can select the model that best fits their business structure. Models are combinable — a hospital might use SaaS Subscription + Professional Services + Add-On Modules, while a BPO might use White-Label Licensing + Revenue Sharing + Usage Metering.</p>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">Subscription-First <span class="method-badge">Default</span></div>
+      <div class="card-body">Best for clinics + mid-size TSOs. Predictable monthly revenue. Includes base minutes + seats. Overage billed at usage rates.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Usage-First <span class="method-badge">BPO</span></div>
+      <div class="card-body">Best for offshore BPOs with variable volume. No minimum commitment. Pay per audio minute + per AI run. Volume discounts apply.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">License-First <span class="method-badge">Enterprise</span></div>
+      <div class="card-body">Best for large BPOs + health systems. One-time license + annual maintenance. Self-hosted or dedicated cloud. Includes white-label branding.</div>
+    </div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Monetization & Pricing Strategy</span><span>Page 2</span></div>
+</div>
+
+<!-- ── PAGE 3: SAAS SUBSCRIPTION TIERS ── -->
+<div class="page">
+  <h2>3. SaaS Subscription Tiers</h2>
+  <p>Three tiers priced for progressive scaling. All prices in <strong>USD</strong>. Annual billing receives a <strong>2 months free</strong> discount (pay 10 months). All tiers include the core AI transcription pipeline, RBAC, audit logging, and FHIR export.</p>
+
+  <div class="grid-3" style="margin-top: 16px;">
+    <!-- Starter -->
+    <div class="tier-card tier-starter">
+      <div class="tier-name">Starter</div>
+      <div class="tier-price">$149<span class="tier-period">/mo</span></div>
+      <div class="tier-desc">Small clinics, solo providers, individual transcriptionist groups. Perfect for testing the platform.</div>
+      <ul class="tier-features">
+        <li>500 audio min/mo included</li>
+        <li>5 user seats</li>
+        <li>25 GB storage</li>
+        <li>Dictation upload + AI drafts</li>
+        <li>Basic templates (SOAP, H&P, Discharge)</li>
+        <li>Basic analytics dashboard</li>
+        <li>Portal + PDF delivery</li>
+        <li>Email support (48h SLA)</li>
+        <li>Single facility</li>
+      </ul>
+    </div>
+
+    <!-- Professional (Popular) -->
+    <div class="tier-card tier-pro">
+      <div class="popular-badge">Most Popular</div>
+      <div class="tier-name">Professional</div>
+      <div class="tier-price">$499<span class="tier-period">/mo</span></div>
+      <div class="tier-desc">Multi-provider clinics, transcription companies, small BPOs. Full workflow + QA + team management.</div>
+      <ul class="tier-features">
+        <li>5,000 audio min/mo included</li>
+        <li>50 user seats</li>
+        <li>200 GB storage</li>
+        <li>Everything in Starter +</li>
+        <li>Workflow routing + QA + team queues</li>
+        <li>Advanced analytics + SLA monitoring</li>
+        <li>All 8 document templates</li>
+        <li>FHIR + HL7 delivery</li>
+        <li>API access (1,000 calls/mo)</li>
+        <li>Branded client portal</li>
+        <li>Priority support (8h SLA)</li>
+        <li>Multi-facility</li>
+      </ul>
+    </div>
+
+    <!-- Enterprise -->
+    <div class="tier-card tier-enterprise">
+      <div class="tier-name">Enterprise</div>
+      <div class="tier-price">Custom</div>
+      <div class="tier-desc">Hospitals, health systems, large BPOs. Full compliance + dedicated environment + white-label.</div>
+      <ul class="tier-features">
+        <li>Unlimited audio minutes</li>
+        <li>Unlimited seats</li>
+        <li>Unlimited storage</li>
+        <li>Everything in Professional +</li>
+        <li>SSO / SAML + custom retention</li>
+        <li>ISO 13485 QMS + ISO 14971 risk</li>
+        <li>EU MDR PMS + HITRUST + SOC 2</li>
+        <li>Dedicated multi-region cloud</li>
+        <li>Custom SLA rules + 24/7 support</li>
+        <li>White-label branding</li>
+        <li>Dedicated CSM + onboarding</li>
+        <li>API access (unlimited)</li>
+        <li>BAA + DPA + custom contracts</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 20px;">3.1 Tier Comparison Matrix</h3>
+  <table>
+    <thead>
+      <tr><th>Feature</th><th>Starter ($149)</th><th>Professional ($499)</th><th>Enterprise (Custom)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Audio minutes (included/mo)</td><td>500</td><td>5,000</td><td>Unlimited</td></tr>
+      <tr><td>Overage rate per audio min</td><td class="price">$0.45</td><td class="price">$0.28</td><td class="price">$0.18</td></tr>
+      <tr><td>User seats</td><td>5</td><td>50</td><td>Unlimited</td></tr>
+      <tr><td>Storage</td><td>25 GB</td><td>200 GB</td><td>Unlimited</td></tr>
+      <tr><td>AI agent runs (included/mo)</td><td>500</td><td>5,000</td><td>Unlimited</td></tr>
+      <tr><td>AI agent run overage</td><td class="price">$0.012</td><td class="price">$0.008</td><td class="price">$0.005</td></tr>
+      <tr><td>API calls (included/mo)</td><td>—</td><td>1,000</td><td>Unlimited</td></tr>
+      <tr><td>Support SLA</td><td>48h email</td><td>8h priority</td><td>24/7 + dedicated CSM</td></tr>
+      <tr><td>Compliance tier</td><td>Tier 1 (HIPAA/GDPR)</td><td>Tier 2 (+ ISO 27001)</td><td>Tier 3 (+ ISO 13485/HITRUST/SOC 2)</td></tr>
+      <tr><td>White-label</td><td>—</td><td>—</td><td>✓ Full branding</td></tr>
+      <tr><td>Dedicated cloud</td><td>—</td><td>—</td><td>✓ Multi-region</td></tr>
+      <tr><td>Annual billing discount</td><td>2 months free</td><td>2 months free</td><td>Custom</td></tr>
+    </tbody>
+  </table>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Monetization & Pricing Strategy</span><span>Page 3</span></div>
+</div>
+
+<!-- ── PAGE 4: USAGE-BASED PRICING ── -->
+<div class="page">
+  <h2>4. Usage-Based Metering</h2>
+  <p>Usage-based pricing captures revenue from variable-volume clients (offshore BPOs, seasonal health systems) and from overage beyond subscription plan limits. All meters are tracked in real-time with monthly invoicing via Stripe Billing.</p>
+
+  <h3>4.1 Metered Usage Rates</h3>
+  <table>
+    <thead>
+      <tr><th>Meter</th><th>Unit</th><th>Starter Rate</th><th>Professional Rate</th><th>Enterprise Rate</th><th>Volume Discount (10K+)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Audio transcription</td><td>per audio minute</td><td class="price">$0.45</td><td class="price">$0.28</td><td class="price">$0.18</td><td class="price">$0.12</td></tr>
+      <tr><td>AI agent run (any agent)</td><td>per run</td><td class="price">$0.012</td><td class="price">$0.008</td><td class="price">$0.005</td><td class="price">$0.003</td></tr>
+      <tr><td>FHIR export</td><td>per document</td><td class="price">$0.05</td><td class="price">$0.03</td><td class="price">$0.02</td><td class="price">$0.01</td></tr>
+      <tr><td>HL7 message generation</td><td>per message</td><td class="price">$0.05</td><td class="price">$0.03</td><td class="price">$0.02</td><td class="price">$0.01</td></tr>
+      <tr><td>Medical entity extraction</td><td>per document</td><td class="price">$0.08</td><td class="price">$0.05</td><td class="price">$0.03</td><td class="price">$0.02</td></tr>
+      <tr><td>Hallucination detection</td><td>per document</td><td class="price">$0.06</td><td class="price">$0.04</td><td class="price">$0.02</td><td class="price">$0.01</td></tr>
+      <tr><td>Storage (beyond plan)</td><td>per GB/month</td><td class="price">$0.15</td><td class="price">$0.10</td><td class="price">$0.06</td><td class="price">$0.04</td></tr>
+      <tr><td>API calls (beyond plan)</td><td>per 1,000 calls</td><td>—</td><td class="price">$0.50</td><td class="price">$0.25</td><td class="price">$0.10</td></tr>
+      <tr><td>DirectTrust message</td><td>per message</td><td class="price">$0.10</td><td class="price">$0.06</td><td class="price">$0.03</td><td class="price">$0.02</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 Usage Cost Calculator (Example Client)</h3>
+  <p>A mid-size TSO on the Professional tier ($499/mo) with 6,500 audio minutes (1,500 overage), 30 entity extractions, 20 hallucination checks, and 50 FHIR exports:</p>
+  <div class="grid-3">
+    <div class="stat-box"><div class="stat-value">$499</div><div class="stat-label">Base subscription</div></div>
+    <div class="stat-box"><div class="stat-value">$420</div><div class="stat-label">Audio overage (1,500 × $0.28)</div></div>
+    <div class="stat-box"><div class="stat-value">$2.50</div><div class="stat-label">AI runs + entities</div></div>
+  </div>
+  <div style="text-align: center; margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--primary);">Total Monthly: ~$922 · Annual: ~$11,064</div>
+
+  <div class="callout">
+    <div class="callout-title">Prepaid Usage Credits</div>
+    <div class="callout-text">Clients can prepay for usage credits at a 10% discount. Credits never expire. Minimum prepay: $500. This improves cash flow + reduces monthly invoice friction for high-volume BPOs.</div>
+  </div>
+
+  <h3>4.3 Volume Discount Tiers</h3>
+  <table>
+    <thead><tr><th>Monthly Volume</th><th>Audio Min Discount</th><th>AI Run Discount</th><th>Credit Validity</th></tr></thead>
+    <tbody>
+      <tr><td>0 – 5,000 min</td><td>Base rate</td><td>Base rate</td><td>—</td></tr>
+      <tr><td>5,001 – 10,000 min</td><td>10% off</td><td>5% off</td><td>12 months</td></tr>
+      <tr><td>10,001 – 25,000 min</td><td>20% off</td><td>15% off</td><td>12 months</td></tr>
+      <tr><td>25,001 – 50,000 min</td><td>30% off</td><td>25% off</td><td>18 months</td></tr>
+      <tr><td>50,001+ min</td><td>40% off (custom)</td><td>35% off</td><td>24 months</td></tr>
+    </tbody>
+  </table>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Monetization & Pricing Strategy</span><span>Page 4</span></div>
+</div>
+
+<!-- ── PAGE 5: WHITE-LABEL LICENSING ── -->
+<div class="page">
+  <h2>5. White-Label Licensing Model</h2>
+  <p>The white-label licensing model enables regional BPO operators, health-system IT departments, and channel partners to operate MedFlow under their own brand — with custom domain, logo, colors, and pricing — while MedFlow handles the underlying platform, AI agents, and infrastructure.</p>
+
+  <h3>5.1 Licensing Tiers</h3>
+  <table>
+    <thead>
+      <tr><th>License Tier</th><th>One-Time Setup</th><th>Annual License</th><th>Revenue Share</th><th>Target Partner</th><th>Key Features</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Silver Partner</strong></td>
+        <td class="price">$5,000</td>
+        <td class="price">$12,000/yr</td>
+        <td>20% of subscription + usage</td>
+        <td>Small regional TSO</td>
+        <td>Logo + colors + custom domain; up to 50 end-clients; shared cloud</td>
+      </tr>
+      <tr>
+        <td><strong>Gold Partner</strong></td>
+        <td class="price">$15,000</td>
+        <td class="price">$36,000/yr</td>
+        <td>15% of subscription + usage</td>
+        <td>Mid-size BPO or health system</td>
+        <td>Full branding + custom templates; up to 250 end-clients; dedicated namespace; partner admin console</td>
+      </tr>
+      <tr>
+        <td><strong>Platinum Partner</strong></td>
+        <td class="price">$50,000</td>
+        <td class="price">$96,000/yr</td>
+        <td>10% of subscription + usage</td>
+        <td>Large BPO, national chain</td>
+        <td>Full white-label + custom modules; unlimited end-clients; dedicated multi-region cloud; on-prem option; 24/7 support</td>
+      </tr>
+      <tr>
+        <td><strong>Exclusive Reseller</strong></td>
+        <td class="price">$100,000</td>
+        <td class="price">$180,000/yr</td>
+        <td>5% of subscription + usage</td>
+        <td>National/regional exclusive distributor</td>
+        <td>Exclusive territory rights; co-branded marketing; deal registration; dedicated account team; source-code escrow</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>5.2 What's Included in White-Label</h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Branding & Customization</div>
+      <div class="card-body">
+        <ul>
+          <li>Custom logo, color palette, fonts</li>
+          <li>Custom domain (e.g., portal.partnername.com)</li>
+          <li>White-labeled email notifications</li>
+          <li>Custom login page + SSO branding</li>
+          <li>Partner-controlled pricing + plans</li>
+          <li>Custom document templates</li>
+          <li>Partner-branded patient portal</li>
+          <li>Custom report headers + footers</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Operational Independence</div>
+      <div class="card-body">
+        <ul>
+          <li>Partner admin console (manage end-clients)</li>
+          <li>Partner-controlled user provisioning</li>
+          <li>Partner-set SLA policies</li>
+          <li>Partner-managed billing (or MedFlow-billed)</li>
+          <li>Partner analytics + revenue dashboards</li>
+          <li>Custom integrations per end-client</li>
+          <li>Data residency controls</li>
+          <li>Co-branded training materials</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>5.3 Revenue-Share Partner Program</h3>
+  <p>The revenue-share program enables channel partners (EHR vendors, consulting firms, regional distributors) to refer clients to MedFlow and earn recurring commission on subscription + usage revenue for the lifetime of the client.</p>
+  <table>
+    <thead><tr><th>Partner Level</th><th>Annual Qualified Deals</th><th>Revenue Share</th><th>Deal Registration</th><th>Co-Sell Support</th></tr></thead>
+    <tbody>
+      <tr><td>Registered</td><td>1-5</td><td>15%</td><td>90-day protection</td><td>Marketing kit</td></tr>
+      <tr><td>Silver</td><td>6-15</td><td>20%</td><td>120-day protection</td><td>+ Co-branded collateral</td></tr>
+      <tr><td>Gold</td><td>16-40</td><td>25%</td><td>180-day protection</td><td>+ Dedicated PAM + lead sharing</td></tr>
+      <tr><td>Platinum</td><td>41+</td><td>30%</td><td>365-day protection</td><td>+ Executive sponsor + joint roadmap</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Lifetime Commission</div>
+    <div class="callout-text">Revenue share is paid monthly for the lifetime of the client relationship — not just the first year. A partner who refers a $499/mo Professional-tier client earns $1,197/yr (20%) every year the client remains active. At 50 active referrals, that's $59,850/yr in passive recurring revenue.</div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Monetization & Pricing Strategy</span><span>Page 5</span></div>
+</div>
+
+<!-- ── PAGE 6: PROFESSIONAL SERVICES + ADD-ONS ── -->
+<div class="page">
+  <h2>6. Professional Services & Implementation</h2>
+  <p>Professional services capture revenue from onboarding, custom integrations, and ongoing optimization. These are one-time or project-based fees billed separately from the SaaS subscription.</p>
+
+  <table>
+    <thead>
+      <tr><th>Service</th><th>Description</th><th>Fee (USD)</th><th>Duration</th><th>Deliverables</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Starter Onboarding</strong></td><td>Basic setup for Starter/Pro tiers</td><td class="price">$2,500</td><td>1 week</td><td>Org setup, 1 facility, 5 users trained, templates configured</td></tr>
+      <tr><td><strong>Professional Onboarding</strong></td><td>Full onboarding for multi-facility clients</td><td class="price">$8,000</td><td>3 weeks</td><td>Multi-facility, custom templates, EHR integration, 25 users trained, SLA policies</td></tr>
+      <tr><td><strong>Enterprise Implementation</strong></td><td>Full deployment for hospitals/health systems</td><td class="price">$25,000-$75,000</td><td>6-12 weeks</td><td>Dedicated env, SSO, custom integrations, CSV validation, change management, 100+ users trained</td></tr>
+      <tr><td><strong>EHR Integration Pack</strong></td><td>FHIR/HL7/Direct integration with a specific EHR</td><td class="price">$5,000-$20,000</td><td>2-6 weeks</td><td>Epic/Cerner/Allscripts/Athena integration, testing, go-live support</td></tr>
+      <tr><td><strong>Custom Template Builder</strong></td><td>Custom clinical document templates per specialty</td><td class="price">$1,500/template</td><td>1 week</td><td>Custom sections, abbreviations, formatting rules, validation</td></tr>
+      <tr><td><strong>HIPAA/ISO 13485 Validation</strong></td><td>Computer system validation (IQ/OQ/PQ) for regulated clients</td><td class="price">$10,000-$30,000</td><td>4-8 weeks</td><td>Validation protocols, traceability matrix, summary report, e-signatures</td></tr>
+      <tr><td><strong>Custom AI Model Training</strong></td><td>Fine-tune transcription/QA for a client's specialty</td><td class="price">$15,000-$50,000</td><td>4-12 weeks</td><td>Custom model, training data prep, evaluation, deployment, monitoring</td></tr>
+      <tr><td><strong>White-Label Branding Pack</strong></td><td>Full white-label customization</td><td class="price">$3,000-$10,000</td><td>1-3 weeks</td><td>Logo, colors, domain, templates, email branding, training materials</td></tr>
+      <tr><td><strong>Annual Optimization Review</strong></td><td>Quarterly business review + optimization</td><td class="price">$4,000/yr</td><td>Ongoing</td><td>QBR, SLA analysis, template optimization, AI tuning, roadmap</td></tr>
+      <tr><td><strong>Training & Certification</strong></td><td>Role-based training + competency certification</td><td class="price">$150/user</td><td>2 days</td><td>On-site or virtual, role-specific curriculum, assessment, certificate</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 20px;">7. Add-On Module Marketplace</h2>
+  <p>Modular add-ons enable clients to purchase only the features they need. Add-ons are billed monthly alongside the subscription. Partners can develop + publish their own add-ons (70/30 revenue split).</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Radiology Module</div>
+      <div class="card-body">DICOM integration, structured radiology reporting (ACR BI-RADS, LI-RADS, PI-RADS), voice-activated template filling.</div>
+      <div style="margin-top: 8px;"><span class="price-tag" style="font-size: 16px;">$199</span><span class="price-period">/mo</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pathology Module</div>
+      <div class="card-body">Structured pathology reports (CAP cancer protocols), synoptic reporting, gross + microscopic dictation templates.</div>
+      <div style="margin-top: 8px;"><span class="price-tag" style="font-size: 16px;">$199</span><span class="price-period">/mo</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Continuous Compliance Module</div>
+      <div class="card-body">Live control monitoring, 1-click audit pack, HIPAA SRA tool, DPIA workflow, vendor risk management.</div>
+      <div style="margin-top: 8px;"><span class="price-tag" style="font-size: 16px;">$299</span><span class="price-period">/mo</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">AI Ops Copilot Module</div>
+      <div class="card-body">Predictive SLA breach, high-rework detection, staffing recommendations, auto-generated client reports.</div>
+      <div style="margin-top: 8px;"><span class="price-tag" style="font-size: 16px;">$249</span><span class="price-period">/mo</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Behavioral Health Module</div>
+      <div class="card-body">PHQ-9/GAD-7 scoring, mental-health consent, minimum-necessary controls, suicide-risk-flag workflow.</div>
+      <div style="margin-top: 8px;"><span class="price-tag" style="font-size: 16px;">$179</span><span class="price-period">/mo</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Patient Portal Module</div>
+      <div class="card-body">HIPAA-compliant patient portal, DSR workflows, FHIR export, secure messaging, telehealth integration.</div>
+      <div style="margin-top: 8px;"><span class="price-tag" style="font-size: 16px;">$349</span><span class="price-period">/mo</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Mobile Provider App</div>
+      <div class="card-body">iOS + Android, biometric auth, offline mode, voice dictation, Apple Health/Google Fit sync.</div>
+      <div style="margin-top: 8px;"><span class="price-tag" style="font-size: 16px;">$199</span><span class="price-period">/mo</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Multi-Language Pack</div>
+      <div class="card-body">Spanish, Mandarin, Hindi, Arabic, French, German, Portuguese transcription + translation.</div>
+      <div style="margin-top: 8px;"><span class="price-tag" style="font-size: 16px;">$299</span><span class="price-period">/mo</span></div>
+    </div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Monetization & Pricing Strategy</span><span>Page 6</span></div>
+</div>
+
+<!-- ── PAGE 7: API ACCESS + MARKET PRICING ── -->
+<div class="page">
+  <h2>8. API Access & Developer Tier</h2>
+  <p>For EHR vendors, research institutions, and enterprise integrators who want to embed MedFlow's AI transcription + QA capabilities into their own applications via FHIR R4 REST APIs.</p>
+
+  <table>
+    <thead><tr><th>API Tier</th><th>Monthly Fee</th><th>Included Calls</th><th>Overage</th><th>Rate Limit</th><th>Support</th></tr></thead>
+    <tbody>
+      <tr><td>Developer (Free)</td><td class="price">$0</td><td>100 calls/mo</td><td>—</td><td>10 req/min</td><td>Community</td></tr>
+      <tr><td>Starter API</td><td class="price">$99/mo</td><td>5,000 calls</td><td class="price">$0.02/call</td><td>100 req/min</td><td>Email</td></tr>
+      <tr><td>Professional API</td><td class="price">$499/mo</td><td>50,000 calls</td><td class="price">$0.01/call</td><td>1,000 req/min</td><td>Priority</td></tr>
+      <tr><td>Enterprise API</td><td class="price">Custom</td><td>Unlimited</td><td>—</td><td>Custom</td><td>24/7 + SLA</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 20px;">9. Market-Specific Pricing</h2>
+  <p>Prices are adjusted for regional purchasing power, regulatory requirements, and competitive landscape. All prices in USD; local-currency billing available for EU, UK, AU, CA, IN.</p>
+
+  <table>
+    <thead>
+      <tr><th>Region</th><th>Starter (USD/mo)</th><th>Professional (USD/mo)</th><th>Enterprise</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>United States</td><td class="price">$149</td><td class="price">$499</td><td>Custom ($2K+)</td><td>Full feature set + BAA + HIPAA</td></tr>
+      <tr><td>Canada</td><td class="price">$139</td><td class="price">$469</td><td>Custom</td><td>PIPEDA/PHIPA, CAD billing</td></tr>
+      <tr><td>EU/EEA</td><td class="price">€139</td><td class="price">€469</td><td>Custom</td><td>GDPR, EU MDR, EHDS-ready, EUR billing</td></tr>
+      <tr><td>United Kingdom</td><td class="price">£119</td><td class="price">£399</td><td>Custom</td><td>UK GDPR, NHS-compliant, GBP billing</td></tr>
+      <tr><td>Australia/NZ</td><td class="price">A$199</td><td class="price">A$669</td><td>Custom</td><td>Privacy Act, My Health Records, AUD billing</td></tr>
+      <tr><td>Middle East (GCC)</td><td class="price">$179</td><td class="price">$599</td><td>Custom</td><td>Arabic language pack, data localization</td></tr>
+      <tr><td>India</td><td class="price">₹4,999</td><td class="price">₹16,999</td><td>Custom</td><td>DPDP Act, offshore BPO hub pricing</td></tr>
+      <tr><td>Philippines</td><td class="price">₱4,999</td><td class="price">₱16,999</td><td>Custom</td><td>Offshore BPO hub, English-primary</td></tr>
+      <tr><td>Southeast Asia</td><td class="price">$99</td><td class="price">$329</td><td>Custom</td><td>Multi-language, localized templates</td></tr>
+      <tr><td>Latin America</td><td class="price">$99</td><td class="price">$329</td><td>Custom</td><td>Spanish/Portuguese, LGPD compliance</td></tr>
+      <tr><td>Africa</td><td class="price">$79</td><td class="price">$249</td><td>Custom</td><td>Emerging-market pricing, mobile-first</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Sovereign Cloud Surcharges</div>
+    <div class="callout-text">EU sovereign cloud (OVHcloud/Scaleway): +15% on Enterprise. On-premises (air-gapped): +25% on Enterprise + $50K/yr on-prem support. China (AliCloud ICP-licensed): +30% + custom contract. Russia (Yandex Cloud, data localization): +30% + custom contract.</div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Monetization & Pricing Strategy</span><span>Page 7</span></div>
+</div>
+
+<!-- ── PAGE 8: REVENUE PROJECTIONS + GTM ── -->
+<div class="page">
+  <h2>10. Revenue Projections (3-Year)</h2>
+  <p>Conservative projections based on the target market segments, planned go-to-market channels, and assumed conversion rates. All figures in USD.</p>
+
+  <table>
+    <thead>
+      <tr><th>Metric</th><th>Year 1</th><th>Year 2</th><th>Year 3</th><th>3-Year Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Active tenants (end of year)</td><td>80</td><td>220</td><td>450</td><td>—</td></tr>
+      <tr><td>Starter-tier clients</td><td>50</td><td>130</td><td>250</td><td>—</td></tr>
+      <tr><td>Professional-tier clients</td><td>25</td><td>70</td><td>150</td><td>—</td></tr>
+      <tr><td>Enterprise-tier clients</td><td>5</td><td>20</td><td>50</td><td>—</td></tr>
+      <tr><td><strong>Subscription revenue</strong></td><td class="price">$420K</td><td class="price">$1.4M</td><td class="price">$3.2M</td><td class="price">$5.0M</td></tr>
+      <tr><td><strong>Usage/overage revenue</strong></td><td class="price">$180K</td><td class="price">$620K</td><td class="price">$1.4M</td><td class="price">$2.2M</td></tr>
+      <tr><td><strong>Professional services</strong></td><td class="price">$280K</td><td class="price">$580K</td><td class="price">$840K</td><td class="price">$1.7M</td></tr>
+      <tr><td><strong>Add-on modules</strong></td><td class="price">$45K</td><td class="price">$180K</td><td class="price">$420K</td><td class="price">$645K</td></tr>
+      <tr><td><strong>Licensing + partner</strong></td><td class="price">$60K</td><td class="price">$220K</td><td class="price">$560K</td><td class="price">$840K</td></tr>
+      <tr><td><strong>API access</strong></td><td class="price">$12K</td><td class="price">$48K</td><td class="price">$120K</td><td class="price">$180K</td></tr>
+      <tr style="background: var(--bg);"><td><strong>TOTAL REVENUE</strong></td><td><strong class="price" style="font-size: 13px;">$997K</strong></td><td><strong class="price" style="font-size: 13px;">$3.05M</strong></td><td><strong class="price" style="font-size: 13px;">$6.54M</strong></td><td><strong class="price" style="font-size: 13px;">$10.6M</strong></td></tr>
+      <tr><td>ARR (annual recurring)</td><td class="price">$600K</td><td class="price">$2.0M</td><td class="price">$4.6M</td><td>—</td></tr>
+      <tr><td>Gross margin</td><td>72%</td><td>75%</td><td>78%</td><td>—</td></tr>
+      <tr><td>CAC (blended)</td><td>$3,200</td><td>$2,800</td><td>$2,400</td><td>—</td></tr>
+      <tr><td>LTV (blended)</td><td>$12,400</td><td>$14,600</td><td>$12,480</td><td>—</td></tr>
+      <tr><td>LTV:CAC</td><td>3.9:1</td><td>5.2:1</td><td>5.2:1</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 20px;">11. Go-To-Market Strategy</h2>
+
+  <h3>11.1 Channels</h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Direct Sales (PLG + Sales-Assisted)</div>
+      <div class="card-body">
+        <ul>
+          <li>Self-serve signup for Starter tier (PLG funnel)</li>
+          <li>Inbound demo requests → SDR qualification → AE close</li>
+          <li>Free 14-day trial with 100 audio minutes included</li>
+          <li>Content marketing (HIPAA/SEO blog, FHIR guides)</li>
+          <li>Target: 60% of Year 1 pipeline</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Channel Partner Program</div>
+      <div class="card-body">
+        <ul>
+          <li>EHR vendor partnerships (Epic App Orchard, Cerner code)</li>
+          <li>Regional BPO distributor agreements</li>
+          <li>Consulting firm referrals (Deloitte, Accenture, Slalom)</li>
+          <li>HIMSS/HLTH conference presence</li>
+          <li>Target: 25% of Year 1 pipeline</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Strategic Alliances</div>
+      <div class="card-body">
+        <ul>
+          <li>Cloud marketplace listings (AWS, Azure, GCP)</li>
+          <li>HIMSS/CHIME corporate member</li>
+          <li>DirectTrust + Carequality participation</li>
+          <li>ISO/HITRUST certification body partnerships</li>
+          <li>Target: 10% of Year 1 pipeline</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">OEM / Embedded</div>
+      <div class="card-body">
+        <ul>
+          <li>EHR-embedded transcription (Epic Workstation, Cerner Millennium)</li>
+          <li>Telehealth platform embedded transcription</li>
+          <li>RIS/PACS embedded radiology reporting</li>
+          <li>Revenue share + OEM license</li>
+          <li>Target: 5% of Year 1 pipeline</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>11.2 Competitive Positioning</h3>
+  <table>
+    <thead><tr><th>Competitor</th><th>Pricing</th><th>MedFlow Advantage</th></tr></thead>
+    <tbody>
+      <tr><td>M*Modal (3M)</td><td>Enterprise only, $100K+</td><td>SMB-friendly tiers + AI-native + modern API</td></tr>
+      <tr><td>Nuance DAX</td><td>$3K-$5K/provider/yr</td><td>BPO-friendly + white-label + offshore model + open FHIR</td></tr>
+      <tr><td>Augmedix</td><td>Service-based, $1,500/bed/mo</td><td>Platform (not service) — clients own the workflow</td></tr>
+      <tr><td>Suki AI</td><td>$400/provider/mo</td><td>Multi-role (not just providers) + QA + SLA + BPO workflows</td></tr>
+      <tr><td>DeepScribe</td><td>$370/provider/mo</td><td>BPO + offshore + white-label + FHIR/HL7 delivery</td></tr>
+      <tr><td>Traditional TSOs</td><td>$0.10-$0.25/line</td><td>AI-native 50% faster TAT + transparent usage pricing</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Client ROI</div>
+    <div class="callout-text">A 50-provider clinic on Professional tier ($499/mo + ~$420/mo usage = ~$11K/yr) replaces a $60K/yr traditional TSO contract + $24K/yr QA manager — saving <strong>$73K/yr (86% cost reduction)</strong> while cutting turnaround time from 24h to 4h. Payback period: 1.2 months.</div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Monetization & Pricing Strategy</span><span>Page 8</span></div>
+</div>
+
+<!-- ── PAGE 9: SUMMARY + CONTACT ── -->
+<div class="page" style="background: linear-gradient(135deg, #0B5345 0%, #0d6651 55%, #1ABC9C 100%); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+  <div style="max-width: 160mm;">
+    <div style="font-size: 12px; font-weight: 600; letter-spacing: 2px; color: #1ABC9C; text-transform: uppercase; margin-bottom: 20px;">MedFlow Transcribe AI</div>
+    <h1 style="font-size: 36px; font-weight: 800; color: white; line-height: 1.2; margin-bottom: 16px;">Ready to Monetize?</h1>
+    <p style="font-size: 14px; color: #E8F8F5; line-height: 1.6; margin-bottom: 32px; text-align: center;">Join the MedFlow partner network and build a profitable white-label medical transcription business with AI-native technology, global compliance, and a proven monetization framework.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px;">
+      <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px; border: 1px solid rgba(26,188,156,0.3);">
+        <div style="font-size: 28px; font-weight: 800; color: #1ABC9C;">7</div>
+        <div style="font-size: 10px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 1px;">Revenue Streams</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px; border: 1px solid rgba(26,188,156,0.3);">
+        <div style="font-size: 28px; font-weight: 800; color: #1ABC9C;">$70B</div>
+        <div style="font-size: 10px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 1px;">Global TAM</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px; border: 1px solid rgba(26,188,156,0.3);">
+        <div style="font-size: 28px; font-weight: 800; color: #1ABC9C;">78%</div>
+        <div style="font-size: 10px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 1px;">Gross Margin</div>
+      </div>
+    </div>
+
+    <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 24px; margin-bottom: 32px; border: 1px solid rgba(26,188,156,0.2);">
+      <div style="font-size: 12px; font-weight: 700; color: #1ABC9C; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;">Next Steps</div>
+      <div style="font-size: 12px; color: #E8F8F5; line-height: 1.8; text-align: left; padding-left: 20px;">
+        <strong>1.</strong> Schedule a partner demo — partnerships@medflow.ai<br>
+        <strong>2.</strong> Sign the partner agreement + NDA<br>
+        <strong>3.</strong> White-label branding setup (1-2 weeks)<br>
+        <strong>4.</strong> Go-to-market launch + first clients<br>
+        <strong>5.</strong> Quarterly business reviews + optimization
+      </div>
+    </div>
+
+    <div style="font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.6;">
+      © 2026 MedFlow Transcribe AI · Confidential — For Partner Distribution<br>
+      All prices in USD unless otherwise noted · Subject to change · Custom contracts available
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

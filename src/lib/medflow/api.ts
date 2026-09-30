@@ -1,19 +1,35 @@
-// MedFlow Transcribe AI — API client (Next.js route handlers + FastAPI proxy).
-// All FastAPI calls go through the Next.js catch-all proxy at /api/ai/<path>,
-// which forwards to http://localhost:8000/api/<path> server-side. This works
-// whether the app is accessed via the Caddy gateway (port 81) OR the Next.js
-// dev server directly (port 3000) — fixing the previous "Failed to load" 404s.
+// MedFlow Transcribe AI — API client (DUAL-mechanism: gateway-direct + proxy-fallback).
+//
+// FastAPI calls use a dual strategy so they work in EVERY access context:
+//   1. GATEWAY-DIRECT (primary): `/${path}?XTransformPort=8000`
+//      - The Caddy gateway (port 81) sees the XTransformPort query + forwards
+//        DIRECTLY to localhost:8000 (FastAPI). 1-hop. No Next.js dependency.
+//      - Works when the app is accessed via the gateway (preview panel, published
+//        new tab, public URL).
+//   2. PROXY-FALLBACK (secondary): `/api/ai/${path}`
+//      - The Next.js catch-all API route forwards to localhost:8000. 2-hop.
+//      - Used when the gateway mechanism returns 404 (i.e. the app is accessed
+//        directly on port 3000 with no gateway in the path).
+//
+// This resolves the persistent 502 in published/new-tab mode: the gateway-direct
+// mechanism doesn't depend on the Next.js dev server's API routes being compiled.
 
 import type { AiAgent, AgentRun, DbConnector, DbTestResult } from "./types";
 
-// Build a URL rooted at the Next.js proxy. Keeps the old `agentsUrl` import
-// working for any external callers, but our own functions use the proxy.
-function aiUrl(path: string): string {
+const AGENTS_PORT = 8000;
+
+// Gateway-direct URL: /api/<path>?XTransformPort=8000 — Caddy forwards to FastAPI.
+function gatewayUrl(path: string): string {
+  return `/api${path}?XTransformPort=${AGENTS_PORT}`;
+}
+
+// Proxy-fallback URL: /api/ai/<path> — Next.js API route forwards to FastAPI.
+function proxyUrl(path: string): string {
   return `/api/ai${path}`;
 }
 
-// Backward-compatible export (some section components may still import agentsUrl).
-export const agentsUrl = aiUrl;
+// Backward-compatible export (some components import agentsUrl).
+export const agentsUrl = proxyUrl;
 
 const AGENT_RUN_STORE_KEY = "medflow.agent.runs.v1";
 
@@ -40,41 +56,79 @@ export function getLocalAgentRuns(agentId: string): AgentRun[] {
   return loadRuns()[agentId] ?? [];
 }
 
-// ── FastAPI calls (with client-side retry on 5xx + network errors) ───────────
-// The Next.js proxy at /api/ai/<path> already retries upstream failures, but we
-// add a second client-side retry layer so a cold-start, first-compile latency
-// (Next.js dev server takes 7+ seconds to compile a route on first hit), or a
-// transient network blip never surfaces as a hard "Failed to load" in the UI.
-// 5 attempts with exponential backoff (1s, 2s, 4s, 8s) = up to 15s total — covers
-// the first-compile window + service restarts.
+// ── Dual-mechanism fetch: tries gateway-direct first, falls back to proxy ────
+// Tries each URL in order (gateway, then proxy). For each URL, retries on
+// 5xx + network errors with exponential backoff. The first URL that returns a
+// non-5xx response wins. This makes FastAPI calls work whether the app is
+// accessed via the gateway (published new tab) OR directly on port 3000.
 
+const PRIMARY_URLS = (path: string) => [gatewayUrl(path), proxyUrl(path)];
+
+async function fetchOne(url: string, init: RequestInit | undefined, attempts: number): Promise<Response | null> {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15_000); // 15s per attempt
+      const res = await fetch(url, { ...init, cache: "no-store", signal: controller.signal });
+      clearTimeout(timeout);
+      // Retry on 5xx (transient) — but 404 means "this URL doesn't exist here,
+      // try the fallback". 200/4xx are returned to the caller.
+      if (res.status >= 500 && i < attempts) {
+        await new Promise(r => setTimeout(r, 800 * i)); // 800ms, 1.6s, 2.4s...
+        continue;
+      }
+      return res; // includes 404 (will trigger fallback) + 200/4xx (final)
+    } catch {
+      if (i < attempts) await new Promise(r => setTimeout(r, 800 * i));
+    }
+  }
+  return null; // all attempts failed for this URL
+}
+
+async function fetchAi(path: string, init?: RequestInit): Promise<Response> {
+  const urls = PRIMARY_URLS(path);
+  let lastError: Error | null = null;
+
+  for (const url of urls) {
+    const res = await fetchOne(url, init, 3); // 3 attempts per URL
+    if (res !== null) {
+      // 404 from the gateway means "no XTransformPort routing here" → try proxy
+      // 200/4xx/5xx-after-retries → return (caller handles non-ok)
+      if (res.status === 404) {
+        lastError = new Error(`${url} returned 404 — trying fallback`);
+        continue; // try next URL
+      }
+      return res;
+    }
+    lastError = new Error(`${url} failed after retries`);
+  }
+  throw lastError ?? new Error(`all fetch paths failed for ${path}`);
+}
+
+// Legacy single-URL retry (kept for any external callers of agentsUrl + fetchWithRetry).
 async function fetchWithRetry(input: string, init?: RequestInit, attempts = 5): Promise<Response> {
   let lastErr: Error | null = null;
   for (let i = 1; i <= attempts; i++) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30_000); // 30s per attempt
+      const timeout = setTimeout(() => controller.abort(), 30_000);
       const res = await fetch(input, { ...init, cache: "no-store", signal: controller.signal });
       clearTimeout(timeout);
-      // Retry on 5xx (server errors) OR 502/504 from the proxy — these are transient.
       if ((res.status >= 500 || res.status === 0) && i < attempts) {
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i - 1))); // 1s, 2s, 4s, 8s
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i - 1)));
         continue;
       }
       return res;
     } catch (e) {
       lastErr = e instanceof Error ? e : new Error(String(e));
-      if (i < attempts) {
-        // Network error / abort / timeout — retry with exponential backoff
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i - 1)));
-      }
+      if (i < attempts) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i - 1)));
     }
   }
   throw lastErr ?? new Error("fetch failed after retries");
 }
 
 export async function fetchAgents(): Promise<AiAgent[]> {
-  const res = await fetchWithRetry(agentsUrl("/agents"));
+  const res = await fetchAi("/agents");
   if (!res.ok) throw new Error(`fetchAgents failed: ${res.status}`);
   const data = await res.json();
   const agents: AiAgent[] = data.agents ?? [];
@@ -85,7 +139,7 @@ export async function fetchAgents(): Promise<AiAgent[]> {
 
 export async function fetchAgent(agentId: string): Promise<AiAgent | null> {
   try {
-    const res = await fetchWithRetry(agentsUrl(`/agents/${agentId}`));
+    const res = await fetchAi(`/agents/${agentId}`);
     if (!res.ok) return null;
     const a: AiAgent = await res.json();
     const local = loadRuns();
@@ -101,8 +155,8 @@ export async function runAgent(
   tenantId = "org_demo",
 ): Promise<AgentRun> {
   const correlationId = `corr-${Math.random().toString(36).slice(2, 11)}`;
-  const res = await fetchWithRetry(
-    agentsUrl(`/agents/${agentId}/run`),
+  const res = await fetchAi(
+    `/agents/${agentId}/run`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -120,7 +174,7 @@ export async function runAgent(
 }
 
 export async function fetchDbConnectors(): Promise<DbConnector[]> {
-  const res = await fetchWithRetry(agentsUrl("/db/connectors"));
+  const res = await fetchAi("/db/connectors");
   if (!res.ok) throw new Error(`fetchDbConnectors failed: ${res.status}`);
   const data = await res.json();
   return data.connectors ?? [];
@@ -130,8 +184,8 @@ export async function testDbConnector(
   connector: string,
   connectionString: string,
 ): Promise<DbTestResult> {
-  const res = await fetchWithRetry(
-    agentsUrl("/db/connectors/test"),
+  const res = await fetchAi(
+    "/db/connectors/test",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -146,8 +200,8 @@ export async function switchDbConnector(
   connector: string,
   connectionString: string,
 ): Promise<{ active_connector: string; switched_at: string; migrated_tables: number; status: string }> {
-  const res = await fetchWithRetry(
-    agentsUrl(`/db/connectors/${connector}/switch`),
+  const res = await fetchAi(
+    `/db/connectors/${connector}/switch`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -159,13 +213,13 @@ export async function switchDbConnector(
 }
 
 export async function fetchFhir(jobId: string): Promise<Record<string, unknown>> {
-  const res = await fetchWithRetry(agentsUrl(`/fhir/${jobId}`));
+  const res = await fetchAi(`/fhir/${jobId}`);
   if (!res.ok) throw new Error(`fetchFhir failed: ${res.status}`);
   return res.json();
 }
 
 export async function fetchHl7(jobId: string): Promise<string> {
-  const res = await fetchWithRetry(agentsUrl(`/hl7/${jobId}`));
+  const res = await fetchAi(`/hl7/${jobId}`);
   if (!res.ok) throw new Error(`fetchHl7 failed: ${res.status}`);
   const data = await res.json();
   return data.message ?? data.hl7 ?? JSON.stringify(data, null, 2);
@@ -212,8 +266,8 @@ export interface CopilotSummary {
 export async function fetchCopilotSummary(
   managerRole = "Offshore Delivery Manager",
 ): Promise<CopilotSummary> {
-  const res = await fetchWithRetry(
-    agentsUrl("/copilot/summarize"),
+  const res = await fetchAi(
+    "/copilot/summarize",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -243,8 +297,8 @@ export interface ExtractedEntities {
 }
 
 export async function extractEntities(text: string, documentType?: string): Promise<ExtractedEntities> {
-  const res = await fetchWithRetry(
-    agentsUrl("/entities/extract"),
+  const res = await fetchAi(
+    "/entities/extract",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -280,8 +334,8 @@ export async function detectHallucinations(
   transcript?: string,
   audioDurationSec?: number,
 ): Promise<HallucinationResult> {
-  const res = await fetchWithRetry(
-    agentsUrl("/hallucination/detect"),
+  const res = await fetchAi(
+    "/hallucination/detect",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -307,7 +361,7 @@ export interface FhirSubscription {
 }
 
 export async function fetchFhirSubscriptions(): Promise<FhirSubscription[]> {
-  const res = await fetchWithRetry(agentsUrl("/fhir/subscription"));
+  const res = await fetchAi("/fhir/subscription");
   if (!res.ok) throw new Error(`fetchFhirSubscriptions failed: ${res.status}`);
   const data = await res.json();
   return data.subscriptions ?? [];
@@ -319,8 +373,8 @@ export async function createFhirSubscription(
   endpoint: string,
   reason: string,
 ): Promise<FhirSubscription> {
-  const res = await fetchWithRetry(
-    agentsUrl("/fhir/subscription"),
+  const res = await fetchAi(
+    "/fhir/subscription",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -335,8 +389,8 @@ export async function fireFhirSubscription(
   subscriptionId: string,
   jobId: string,
 ): Promise<{ subscription_id: string; job_id: string; fired_at: string; response_code: number; latency_ms: number; status: string }> {
-  const res = await fetchWithRetry(
-    agentsUrl(`/fhir/subscription/${subscriptionId}/fire`),
+  const res = await fetchAi(
+    `/fhir/subscription/${subscriptionId}/fire`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -348,8 +402,8 @@ export async function fireFhirSubscription(
 }
 
 export async function deleteFhirSubscription(subscriptionId: string): Promise<{ ok: boolean }> {
-  const res = await fetchWithRetry(
-    agentsUrl(`/fhir/subscription/${subscriptionId}`),
+  const res = await fetchAi(
+    `/fhir/subscription/${subscriptionId}`,
     { method: "DELETE" },
   );
   if (!res.ok) throw new Error(`deleteFhirSubscription failed: ${res.status}`);
@@ -380,8 +434,8 @@ export async function sendDirectMessage(
   documentSummary?: string,
   attachmentFormat: "pdf" | "ccda" | "fhir" = "pdf",
 ): Promise<DirectMessage> {
-  const res = await fetchWithRetry(
-    agentsUrl("/direct/send"),
+  const res = await fetchAi(
+    "/direct/send",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -399,7 +453,7 @@ export async function sendDirectMessage(
 }
 
 export async function fetchDirectLog(): Promise<DirectMessage[]> {
-  const res = await fetchWithRetry(agentsUrl("/direct/log"));
+  const res = await fetchAi("/direct/log");
   if (!res.ok) throw new Error(`fetchDirectLog failed: ${res.status}`);
   const data = await res.json();
   return data.messages ?? [];

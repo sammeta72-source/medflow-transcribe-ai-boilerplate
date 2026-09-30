@@ -21,7 +21,13 @@ import { Analytics } from "@/components/medflow/sections/Analytics";
 import { AIAgents } from "@/components/medflow/sections/AIAgents";
 import { Integrations } from "@/components/medflow/sections/Integrations";
 import { Team } from "@/components/medflow/sections/Team";
-import { Billing } from "@/components/medflow/sections/Billing";
+import { LiveDictation } from "@/components/medflow/sections/LiveDictation";
+import { WorkflowRouting } from "@/components/medflow/sections/WorkflowRouting";
+import { WorkforceMgmt } from "@/components/medflow/sections/WorkforceMgmt";
+import { SmartFhir } from "@/components/medflow/sections/SmartFhir";
+import { PatientPortal } from "@/components/medflow/sections/PatientPortal";
+import { HipaaSra } from "@/components/medflow/sections/HipaaSra";
+import { StripeBilling } from "@/components/medflow/sections/StripeBilling";
 import { AuditSecurity } from "@/components/medflow/sections/AuditSecurity";
 import { Settings } from "@/components/medflow/sections/Settings";
 import { Copilot } from "@/components/medflow/sections/Copilot";
@@ -102,6 +108,7 @@ export default function Home() {
       {active === "upload" && (
         <UploadDictation onSubmitted={() => { setActive("jobs"); onAdvanced(); }} />
       )}
+      {active === "streaming" && <LiveDictation />}
       {active === "documents" && <Documents />}
       {active === "clarifications" && <Clarifications />}
       {active === "quality" && <Quality />}
@@ -110,12 +117,17 @@ export default function Home() {
       {active === "agents" && <AIAgents />}
       {active === "integrations" && <Integrations />}
       {active === "copilot" && <Copilot />}
+      {active === "workflow" && <WorkflowRouting />}
+      {active === "workforce" && <WorkforceMgmt />}
       {active === "compliance" && <ContinuousCompliance />}
+      {active === "smart-fhir" && <SmartFhir />}
+      {active === "patient-access" && <PatientPortal />}
       {active === "client-portal" && <ClientPortal />}
       {active === "mobile-app" && <MobileApp />}
       {active === "team" && <Team />}
-      {active === "billing" && <Billing />}
+      {active === "billing" && <StripeBilling />}
       {active === "audit" && <AuditSecurity />}
+      {active === "sra" && <HipaaSra />}
       {active === "settings" && <Settings />}
 
       {/* Demo user switcher (overlay at top right of main, for demo) */}

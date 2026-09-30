@@ -34,6 +34,13 @@ export type Permission =
   | "section.compliance"
   | "section.client-portal"
   | "section.mobile-app"
+  // Round 2 additive sections
+  | "section.streaming"
+  | "section.workflow"
+  | "section.workforce"
+  | "section.smart-fhir"
+  | "section.patient-access"
+  | "section.sra"
   // Workflow actions
   | "action.upload_dictation"
   | "action.assign"
@@ -82,7 +89,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "section.clarifications","section.quality","section.templates","section.analytics",
     "section.agents","section.integrations","section.team","section.billing","section.audit",
     "section.settings","section.rbac",
-    "section.copilot","section.compliance","section.client-portal","section.mobile-app",
+    "section.copilot","section.compliance","section.client-portal",
+    "section.workflow","section.workforce","section.smart-fhir","section.patient-access","section.mobile-app",
+    "section.streaming","section.workflow","section.workforce","section.smart-fhir","section.patient-access","section.sra",
     "action.upload_dictation","action.assign","action.reassign","action.advance_workflow",
     "action.run_ai_agent","action.request_clarification","action.resolve_clarification",
     "action.qa_review","action.qa_reject","action.provider_approve","action.provider_sign",
@@ -95,6 +104,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "section.clarifications","section.quality","section.analytics","section.agents",
     "section.team","section.audit",
     "section.copilot","section.compliance","section.client-portal",
+    "section.workflow","section.workforce","section.smart-fhir","section.patient-access",
     "action.assign","action.reassign","action.advance_workflow","action.run_ai_agent",
     "action.request_clarification","action.resolve_clarification","action.qa_review",
     "action.escalate","action.cancel_job","action.view_audit","action.export_data",
@@ -102,14 +112,14 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   Provider: [
     "section.overview","section.jobs","section.queue","section.upload","section.documents",
     "section.clarifications","section.quality","section.analytics",
-    "section.mobile-app",
+    "section.mobile-app","section.streaming","section.patient-access","section.smart-fhir",
     "action.upload_dictation","action.request_clarification","action.provider_approve",
     "action.provider_sign","action.advance_workflow",
   ],
   "Onsite Coordinator": [
     "section.overview","section.jobs","section.queue","section.clarifications",
     "section.quality","section.analytics","section.agents",
-    "section.copilot","section.client-portal",
+    "section.copilot","section.client-portal","section.workflow","section.streaming",
     "action.assign","action.reassign","action.advance_workflow","action.run_ai_agent",
     "action.request_clarification","action.resolve_clarification","action.escalate",
   ],
@@ -117,12 +127,13 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "section.overview","section.jobs","section.queue","section.quality",
     "section.analytics","section.agents","section.team",
     "section.copilot","section.compliance","section.mobile-app",
+    "section.streaming","section.workflow","section.workforce",
     "action.assign","action.reassign","action.advance_workflow","action.run_ai_agent",
     "action.qa_review","action.escalate","action.export_data",
   ],
   Transcriptionist: [
     "section.overview","section.jobs","section.queue","section.documents",
-    "section.clarifications",
+    "section.clarifications","section.streaming","section.workflow",
     "action.advance_workflow","action.request_clarification",
   ],
   "Medical Editor": [
@@ -132,7 +143,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   "QA Analyst": [
     "section.overview","section.jobs","section.queue","section.quality","section.analytics",
-    "section.copilot",
+    "section.copilot","section.workflow",
     "action.qa_review","action.qa_reject","action.advance_workflow","action.run_ai_agent",
     "action.request_clarification",
   ],
@@ -142,7 +153,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   "Auditor / Compliance Officer": [
     "section.overview","section.audit","section.quality","section.analytics",
-    "section.compliance",
+    "section.compliance","section.sra",
     "action.view_audit","action.export_data",
   ],
   "Support User": [
@@ -174,6 +185,13 @@ export const SECTION_PERMISSIONS: Record<string, Permission> = {
   compliance: "section.compliance",
   "client-portal": "section.client-portal",
   "mobile-app": "section.mobile-app",
+  // Round 2
+  "streaming": "section.streaming",
+  "workflow": "section.workflow",
+  "workforce": "section.workforce",
+  "smart-fhir": "section.smart-fhir",
+  "patient-access": "section.patient-access",
+  "sra": "section.sra",
 };
 
 // Helper: does a role have a permission? (wildcard support)

@@ -14,7 +14,7 @@ import {
   LayoutDashboard, LogOut, MessageCircleQuestion, type LucideIcon, Pencil, Plug,
   ScanLine, Search, Send, Settings, ShieldAlert, ShieldCheck, Smartphone, Sparkles, Stethoscope,
   Upload, Users, UserCircle2, X, Menu, Building2, ChevronDown, ChevronUp,
-  Moon, Sun, Bot as BotIcon, Globe, Lock, UserCog,
+  Mic, Workflow, CalendarRange, ClipboardCheck, Moon, Sun, Bot as BotIcon, Globe, Lock, UserCog,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   ShieldCheck, FileStack, BarChart3, Bot, Plug, Users, CreditCard, ShieldAlert,
   Settings, Activity, AlertTriangle, CalendarClock, ClipboardList, FileOutput,
   ScanLine, Send, Stethoscope, UserCircle2, Pencil, Lock, UserCog,
-  Sparkles, BadgeCheck, Globe, Smartphone,
+  Sparkles, BadgeCheck, Globe, Smartphone, Mic, Workflow, CalendarRange, ClipboardCheck,
 };
 
 interface Props {

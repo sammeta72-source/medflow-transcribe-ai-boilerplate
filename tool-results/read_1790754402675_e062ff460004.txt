@@ -1,0 +1,969 @@
+     1→"use client";
+     2→// MedFlow AI Operations Copilot — floating voice-enabled chatbot widget.
+     3→// (Task 7 — additive overlay, mounted once alongside <AppShell /> in page.tsx.)
+     4→//
+     5→// Self-contained client state — no Zustand. Uses:
+     6→//   - /api/chat            (LLM completions, server-side z-ai-web-dev-sdk)
+     7→//   - /api/chat/asr        (speech-to-text from a MediaRecorder blob)
+     8→//   - /api/chat/tts        (text-to-speech as audio/mpeg binary)
+     9→//   - /api/chat/agent      (FastAI agent run proxy on :8000, with fallback mock)
+    10→//
+    11→// Position: fixed bottom-20 right-4 z-50 — floats above the sticky footer
+    12→// (~40px tall) and the demo-user switcher (also bottom-4 right-4).
+    13→// Mobile: panel shrinks to w-[calc(100vw-2rem)], desktop: w-96.
+    14→
+    15→import {
+    16→  useCallback,
+    17→  useEffect,
+    18→  useMemo,
+    19→  useRef,
+    20→  useState,
+    21→  type KeyboardEvent,
+    22→} from "react";
+    23→import { AnimatePresence, motion } from "framer-motion";
+    24→import { toast } from "sonner";
+    25→import {
+    26→  Bot,
+    27→  Mic,
+    28→  SendHorizontal,
+    29→  Volume2,
+    30→  X,
+    31→  Trash2,
+    32→  Square,
+    33→  Sparkles,
+    34→  Radio,
+    35→} from "lucide-react";
+    36→
+    37→import { Button } from "@/components/ui/button";
+    38→import { Textarea } from "@/components/ui/textarea";
+    39→import { Badge } from "@/components/ui/badge";
+    40→import { Switch } from "@/components/ui/switch";
+    41→import {
+    42→  Tooltip,
+    43→  TooltipContent,
+    44→  TooltipProvider,
+    45→  TooltipTrigger,
+    46→} from "@/components/ui/tooltip";
+    47→import { cn } from "@/lib/utils";
+    48→
+    49→// ── Types ────────────────────────────────────────────────────────────────
+    50→type Role = "user" | "assistant" | "system";
+    51→
+    52→interface ChatMessage {
+    53→  id: string;
+    54→  role: Role;
+    55→  content: string;
+    56→  // optional — set when the message triggered an agent run
+    57→  agentRun?: {
+    58→    agentId: string;
+    59→    jobId: string;
+    60→    summary: string;
+    61→  };
+    62→}
+    63→
+    64→// ── Shape returned by /api/chat/agent (mirrors the FastAPI run record) ────
+    65→interface AgentRunResult {
+    66→  agent_id?: string;
+    67→  job_id?: string;
+    68→  tenant_id?: string;
+    69→  correlation_id?: string;
+    70→  status?: string;
+    71→  started_at?: string;
+    72→  completed_at?: string | null;
+    73→  duration_ms?: number;
+    74→  cost_usd?: number;
+    75→  model?: string;
+    76→  prompt_version?: string;
+    77→  output?: Record<string, unknown> | null;
+    78→  // synthetic-fallback flags
+    79→  synthetic?: boolean;
+    80→  upstream_status?: number;
+    81→  fallback_reason?: string;
+    82→}
+    83→
+    84→// ── Known agent ids (must mirror /api/chat/agent route) ──────────────────
+    85→const KNOWN_AGENT_IDS = [
+    86→  "intake-validation",
+    87→  "transcription",
+    88→  "structuring",
+    89→  "qa",
+    90→  "allocation",
+    91→  "sla",
+    92→  "delivery",
+    93→  "billing",
+    94→  "security",
+    95→  "reporting",
+    96→] as const;
+    97→type KnownAgentId = (typeof KNOWN_AGENT_IDS)[number];
+    98→
+    99→const AGENT_LABELS: Record<string, string> = {
+   100→  "intake-validation": "Intake Validation",
+   101→  transcription: "Transcription",
+   102→  structuring: "Structuring",
+   103→  qa: "QA",
+   104→  allocation: "Allocation",
+   105→  sla: "SLA",
+   106→  delivery: "Delivery",
+   107→  billing: "Billing",
+   108→  security: "Security",
+   109→  reporting: "Reporting",
+   110→};
+   111→
+   112→// ── Quick-action chips ───────────────────────────────────────────────────
+   113→// `agentId` set → chip directly triggers the agent run (skips chat).
+   114→// `agentId` not set → chip sends the label as a user message.
+   115→interface Chip {
+   116→  label: string;
+   117→  agentId?: KnownAgentId;
+   118→  jobId?: string;
+   119→}
+   120→
+   121→const QUICK_CHIPS: Chip[] = [
+   122→  { label: "Run Transcription Agent", agentId: "transcription", jobId: "JOB-2024-001" },
+   123→  { label: "Run QA Agent", agentId: "qa", jobId: "JOB-2024-001" },
+   124→  { label: "Check SLA risk", agentId: "sla", jobId: "JOB-2024-001" },
+   125→  { label: "Summarize today's backlog" },
+   126→  { label: "Route a STAT job", agentId: "allocation", jobId: "JOB-2024-001" },
+   127→  { label: "Run Delivery Agent", agentId: "delivery", jobId: "JOB-2024-001" },
+   128→  { label: "Run Intake Validation", agentId: "intake-validation", jobId: "JOB-2024-001" },
+   129→];
+   130→
+   131→// ── Agent-intent detector ────────────────────────────────────────────────
+   132→// Scans user text for known agent names + JOB-XXXX patterns.
+   133→export function detectAgentIntent(text: string): { agentId?: string; jobId?: string } | null {
+   134→  if (!text) return null;
+   135→  const lower = text.toLowerCase();
+   136→
+   137→  // Direct agent-id hit ("run transcription", "trigger qa", etc.).
+   138→  let agentId: string | undefined;
+   139→  for (const id of KNOWN_AGENT_IDS) {
+   140→    // Match the id literally ("intake-validation") OR the short label
+   141→    // ("transcription", "qa", "allocation", "sla", "delivery", "billing",
+   142→    // "security", "reporting", "intake", "structuring"). Also handle "run ...
+   143→    // agent" / "trigger ...".
+   144→    const label = AGENT_LABELS[id].toLowerCase();
+   145→    const tokens = [id, label, label.split(" ")[0]];
+   146→    if (tokens.some((t) => t && lower.includes(t))) {
+   147→      agentId = id;
+   148→      break;
+   149→    }
+   150→  }
+   151→
+   152→  // Phrase fallback: "run ... agent" / "trigger ..."
+   153→  if (!agentId) {
+   154→    if (/\b(run|trigger|execute|invoke|kick off|start)\b.*\bagent\b/.test(lower)) {
+   155→      // best-effort label match inside the phrase
+   156→      for (const id of KNOWN_AGENT_IDS) {
+   157→        const label = AGENT_LABELS[id].toLowerCase();
+   158→        if (label && lower.includes(label)) {
+   159→          agentId = id;
+   160→          break;
+   161→        }
+   162→      }
+   163→    }
+   164→  }
+   165→
+   166→  // Job id (JOB-XXXX-NNNN) — anywhere in the text.
+   167→  const jobMatch = text.match(/\bJOB-\d{4}-\d{3,4}\b/i);
+   168→  const jobId = jobMatch ? jobMatch[0].toUpperCase() : undefined;
+   169→
+   170→  if (!agentId && !jobId) return null;
+   171→  return { agentId, jobId };
+   172→}
+   173→
+   174→// ── Client-side agent-run summarizer ─────────────────────────────────────
+   175→// Mirrors the server-side helper in /api/chat/agent/route.ts.
+   176→// Returns a short human summary from the FastAPI run output.
+   177→export function summarizeRunClient(
+   178→  agentId: string,
+   179→  run: {
+   180→    status?: string;
+   181→    duration_ms?: number;
+   182→    cost_usd?: number;
+   183→    output?: Record<string, unknown> | null;
+   184→  },
+   185→): string {
+   186→  const o = (run.output ?? {}) as Record<string, unknown>;
+   187→  const status = run.status ?? "succeeded";
+   188→  const dur = typeof run.duration_ms === "number" ? `${run.duration_ms}ms` : "";
+   189→  const cost = typeof run.cost_usd === "number" ? `$${run.cost_usd.toFixed(4)}` : "";
+   190→
+   191→  if (status !== "succeeded") {
+   192→    return [`${agentId} ${status}`, dur, cost].filter(Boolean).join(", ");
+   193→  }
+   194→
+   195→  switch (agentId as KnownAgentId) {
+   196→    case "transcription": {
+   197→      const conf =
+   198→        typeof o.confidence === "number"
+   199→          ? `confidence ${(o.confidence * 100).toFixed(0)}%`
+   200→          : "transcript ready";
+   201→      return [conf, dur, cost].filter(Boolean).join(", ");
+   202→    }
+   203→    case "qa": {
+   204→      const qs = typeof o.quality_score === "number" ? `QA score ${o.quality_score}/100` : "";
+   205→      const risk =
+   206→        (typeof o.risk_severity === "string" && `risk ${o.risk_severity}`) ||
+   207→        (typeof o.severity === "string" && `risk ${o.severity}`) ||
+   208→        "";
+   209→      const fc = Array.isArray(o.findings) ? `${o.findings.length} findings` : "";
+   210→      return [qs, risk, fc, dur, cost].filter(Boolean).join(", ");
+   211→    }
+   212→    case "structuring": {
+   213→      const t = typeof o.template === "string" ? o.template : "structured note";
+   214→      const sec = Array.isArray(o.sections) ? `${o.sections.length} sections` : "";
+   215→      return [`structured as ${t}`, sec, dur, cost].filter(Boolean).join(", ");
+   216→    }
+   217→    case "allocation": {
+   218→      const name =
+   219→        (typeof o.assigned_user_name === "string" && o.assigned_user_name) ||
+   220→        (typeof o.assigned_to === "string" && o.assigned_to) ||
+   221→        "a worker";
+   222→      return [`routed to ${name}`, dur, cost].filter(Boolean).join(", ");
+   223→    }
+   224→    case "sla": {
+   225→      const atRisk = Array.isArray(o.jobs_at_risk) ? `${o.jobs_at_risk.length} jobs at risk` : "";
+   226→      const esc =
+   227→        typeof o.escalation_triggered === "number"
+   228→          ? `${o.escalation_triggered} escalations`
+   229→          : "";
+   230→      return [atRisk, esc, dur, cost].filter(Boolean).join(", ");
+   231→    }
+   232→    case "delivery": {
+   233→      const channel =
+   234→        (typeof o.channel === "string" && o.channel) ||
+   235→        (typeof o.method === "string" && o.method) ||
+   236→        "channel";
+   237→      const code = typeof o.response_code === "number" ? `HTTP ${o.response_code}` : "";
+   238→      return [`delivered via ${channel}`, code, dur, cost].filter(Boolean).join(", ");
+   239→    }
+   240→    case "billing": {
+   241→      const amt = typeof o.amount_usd === "number" ? `$${o.amount_usd.toFixed(2)}` : "";
+   242→      const inv = typeof o.invoice_id === "string" ? o.invoice_id : "";
+   243→      return [`billed ${amt}`, inv, dur, cost].filter(Boolean).join(", ");
+   244→    }
+   245→    case "security": {
+   246→      const threats =
+   247→        typeof o.threats_blocked === "number" ? `${o.threats_blocked} blocked` : "clean";
+   248→      return [`security scan: ${threats}`, dur, cost].filter(Boolean).join(", ");
+   249→    }
+   250→    case "reporting": {
+   251→      const rows = typeof o.rows_emitted === "number" ? `${o.rows_emitted} rows` : "report";
+   252→      return [`report generated (${rows})`, dur, cost].filter(Boolean).join(", ");
+   253→    }
+   254→    case "intake-validation": {
+   255→      const valid = o.valid === true ? "valid" : "invalid";
+   256→      const meta =
+   257→        typeof o.metadata_completeness === "number"
+   258→          ? `metadata ${(o.metadata_completeness * 100).toFixed(0)}%`
+   259→          : "";
+   260→      const mal = typeof o.malware_scan === "string" ? `malware=${o.malware_scan}` : "";
+   261→      return [`intake ${valid}`, meta, mal, dur, cost].filter(Boolean).join(", ");
+   262→    }
+   263→    default: {
+   264→      const snip = JSON.stringify(o).slice(0, 80);
+   265→      return [snip, dur, cost].filter(Boolean).join(", ");
+   266→    }
+   267→  }
+   268→}
+   269→
+   270→// ── Helpers ──────────────────────────────────────────────────────────────
+   271→function uid(prefix = "m"): string {
+   272→  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+   273→}
+   274→
+   275→function formatTimer(seconds: number): string {
+   276→  const m = Math.floor(seconds / 60);
+   277→  const s = seconds % 60;
+   278→  return `${m}:${s.toString().padStart(2, "0")}`;
+   279→}
+   280→
+   281→// Convert a Blob to a base64 data URI (used for the ASR payload).
+   282→function blobToBase64(blob: Blob): Promise<string> {
+   283→  return new Promise((resolve, reject) => {
+   284→    const reader = new FileReader();
+   285→    reader.onerror = () => reject(new Error("FileReader failed"));
+   286→    reader.onload = () => resolve(reader.result as string);
+   287→    reader.readAsDataURL(blob);
+   288→  });
+   289→}
+   290→
+   291→// ── Default welcome message ──────────────────────────────────────────────
+   292→const WELCOME: ChatMessage = {
+   293→  id: "welcome",
+   294→  role: "assistant",
+   295→  content:
+   296→    "Hi, I'm the MedFlow AI Operations Copilot. Ask me to run an agent, summarize job status, or check SLA risk. Try a quick action below, or hold the mic to speak.",
+   297→};
+   298→
+   299→// ── Main component ───────────────────────────────────────────────────────
+   300→export function VoiceChatbot() {
+   301→  const [isOpen, setIsOpen] = useState(false);
+   302→  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
+   303→  const [input, setInput] = useState("");
+   304→  const [isThinking, setIsThinking] = useState(false);
+   305→  const [isPlaying, setIsPlaying] = useState(false);
+   306→  const [autoSpeak, setAutoSpeak] = useState(false);
+   307→  const [voice, setVoice] = useState("tongtong");
+   308→
+   309→  // Recording state
+   310→  const [isRecording, setIsRecording] = useState(false);
+   311→  const [recSeconds, setRecSeconds] = useState(0);
+   312→
+   313→  // Refs
+   314→  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+   315→  const recordedChunksRef = useRef<Blob[]>([]);
+   316→  const streamRef = useRef<MediaStream | null>(null);
+   317→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   318→  const audioRef = useRef<HTMLAudioElement | null>(null);
+   319→  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+   320→  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+   321→  const panelRef = useRef<HTMLDivElement | null>(null);
+   322→  const firstFocusableRef = useRef<HTMLButtonElement | null>(null);
+   323→
+   324→  // Auto-scroll on new message
+   325→  useEffect(() => {
+   326→    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+   327→  }, [messages, isThinking]);
+   328→
+   329→  // Recording timer
+   330→  useEffect(() => {
+   331→    if (isRecording) {
+   332→      timerRef.current = setInterval(() => {
+   333→        setRecSeconds((s) => s + 1);
+   334→      }, 1000);
+   335→    } else {
+   336→      if (timerRef.current) {
+   337→        clearInterval(timerRef.current);
+   338→        timerRef.current = null;
+   339→      }
+   340→      setRecSeconds(0);
+   341→    }
+   342→    return () => {
+   343→      if (timerRef.current) {
+   344→        clearInterval(timerRef.current);
+   345→        timerRef.current = null;
+   346→      }
+   347→    };
+   348→  }, [isRecording]);
+   349→
+   350→  // Cleanup mic/stream on unmount
+   351→  useEffect(() => {
+   352→    return () => {
+   353→      stopMicStream();
+   354→    };
+   355→  }, []);
+   356→
+   357→  function stopMicStream() {
+   358→    if (streamRef.current) {
+   359→      streamRef.current.getTracks().forEach((t) => t.stop());
+   360→      streamRef.current = null;
+   361→    }
+   362→    if (mediaRecorderRef.current) {
+   363→      try {
+   364→        if (mediaRecorderRef.current.state !== "inactive") {
+   365→          mediaRecorderRef.current.stop();
+   366→        }
+   367→      } catch {
+   368→        /* ignore */
+   369→      }
+   370→      mediaRecorderRef.current = null;
+   371→    }
+   372→  }
+   373→
+   374→  // ── TTS playback ──────────────────────────────────────────────────────
+   375→  const speak = useCallback(
+   376→    async (text: string) => {
+   377→      if (!text || isPlaying) return;
+   378→      try {
+   379→        const res = await fetch("/api/chat/tts", {
+   380→          method: "POST",
+   381→          headers: { "Content-Type": "application/json" },
+   382→          body: JSON.stringify({ text, voice }),
+   383→        });
+   384→        if (!res.ok) {
+   385→          const j = await res.json().catch(() => ({}));
+   386→          throw new Error(j.error || `TTS HTTP ${res.status}`);
+   387→        }
+   388→        const blob = await res.blob();
+   389→        const url = URL.createObjectURL(blob);
+   390→        if (audioRef.current) {
+   391→          audioRef.current.src = url;
+   392→          audioRef.current.onended = () => {
+   393→            setIsPlaying(false);
+   394→            URL.revokeObjectURL(url);
+   395→          };
+   396→          audioRef.current.onerror = () => {
+   397→            setIsPlaying(false);
+   398→            URL.revokeObjectURL(url);
+   399→          };
+   400→          await audioRef.current.play().catch(() => {
+   401→            /* user gesture required on some browsers — swallow */
+   402→          });
+   403→          setIsPlaying(true);
+   404→        }
+   405→      } catch (e) {
+   406→        const msg = e instanceof Error ? e.message : String(e);
+   407→        toast.error(`TTS failed: ${msg}`);
+   408→        setIsPlaying(false);
+   409→      }
+   410→    },
+   411→    [isPlaying, voice],
+   412→  );
+   413→
+   414→  // ── Trigger a FastAPI agent run + append a system summary ──────────────
+   415→  const triggerAgent = useCallback(
+   416→    async (agentId: string, jobId?: string) => {
+   417→      try {
+   418→        const res = await fetch("/api/chat/agent", {
+   419→          method: "POST",
+   420→          headers: { "Content-Type": "application/json" },
+   421→          body: JSON.stringify({ agentId, jobId }),
+   422→        });
+   423→        if (!res.ok) {
+   424→          // Even on 500 we expect a JSON error envelope
+   425→          const j = await res.json().catch(() => ({}));
+   426→          throw new Error(j.error || `agent HTTP ${res.status}`);
+   427→        }
+   428→        const run = (await res.json()) as AgentRunResult;
+   429→        const summary = summarizeRunClient(agentId, run);
+   430→        const finalJobId = run.job_id || jobId || "JOB-2024-001";
+   431→        const label = AGENT_LABELS[agentId] ?? agentId;
+   432→        const ok = run.status === "succeeded";
+   433→        const msg: ChatMessage = {
+   434→          id: uid("agent"),
+   435→          role: "system",
+   436→          content: `${ok ? "✅" : "⚠️"} ${label} Agent ran on ${finalJobId} — ${summary}`,
+   437→          agentRun: { agentId, jobId: finalJobId, summary },
+   438→        };
+   439→        setMessages((prev) => [...prev, msg]);
+   440→        return msg;
+   441→      } catch (e) {
+   442→        const msg = e instanceof Error ? e.message : String(e);
+   443→        setMessages((prev) => [
+   444→          ...prev,
+   445→          { id: uid("err"), role: "system", content: `⚠️ Agent run failed: ${msg}` },
+   446→        ]);
+   447→        toast.error(`Agent run failed: ${msg}`);
+   448→        return null;
+   449→      }
+   450→    },
+   451→    [],
+   452→  );
+   453→
+   454→  // ── Send a chat message (optionally also trigger an agent in parallel) ─
+   455→  const sendMessage = useCallback(
+   456→    async (text: string, options?: { skipAgent?: boolean }) => {
+   457→      const trimmed = text.trim();
+   458→      if (!trimmed || isThinking) return;
+   459→
+   460→      const userMsg: ChatMessage = {
+   461→        id: uid("u"),
+   462→        role: "user",
+   463→        content: trimmed,
+   464→      };
+   465→      const nextMessages = [...messages, userMsg];
+   466→      setMessages(nextMessages);
+   467→      setInput("");
+   468→      setIsThinking(true);
+   469→
+   470→      // Detect agent intent → trigger in parallel (but keep the chat answer too).
+   471→      let intent: ReturnType<typeof detectAgentIntent> = null;
+   472→      if (!options?.skipAgent) {
+   473→        intent = detectAgentIntent(trimmed);
+   474→      }
+   475→
+   476→      // Fire the agent run alongside the chat completion.
+   477→      const agentPromise = intent?.agentId
+   478→        ? triggerAgent(intent.agentId, intent.jobId)
+   479→        : Promise.resolve(null);
+   480→
+   481→      // Chat completion with the full message history.
+   482→      const chatPromise = (async () => {
+   483→        try {
+   484→          const res = await fetch("/api/chat", {
+   485→            method: "POST",
+   486→            headers: { "Content-Type": "application/json" },
+   487→            body: JSON.stringify({
+   488→              messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
+   489→            }),
+   490→          });
+   491→          if (!res.ok) {
+   492→            const j = await res.json().catch(() => ({}));
+   493→            throw new Error(j.error || `chat HTTP ${res.status}`);
+   494→          }
+   495→          const data = await res.json();
+   496→          const content: string | undefined = data?.content;
+   497→          if (!content) {
+   498→            throw new Error(data?.error || "Empty chat response");
+   499→          }
+   500→          return content as string;
+   501→        } catch (e) {
+   502→          const msg = e instanceof Error ? e.message : String(e);
+   503→          setMessages((prev) => [
+   504→            ...prev,
+   505→            { id: uid("err"), role: "system", content: `⚠️ ${msg}` },
+   506→          ]);
+   507→          toast.error(`Copilot error: ${msg}`);
+   508→          return null;
+   509→        }
+   510→      })();
+   511→
+   512→      const [assistantContent] = await Promise.all([chatPromise, agentPromise]);
+   513→
+   514→      if (assistantContent) {
+   515→        const assistantMsg: ChatMessage = {
+   516→          id: uid("a"),
+   517→          role: "assistant",
+   518→          content: assistantContent,
+   519→        };
+   520→        setMessages((prev) => [...prev, assistantMsg]);
+   521→        if (autoSpeak) {
+   522→          // Fire-and-forget TTS for the assistant reply.
+   523→          void speak(assistantContent);
+   524→        }
+   525→      }
+   526→
+   527→      setIsThinking(false);
+   528→      // Re-focus the input for follow-up typing.
+   529→      setTimeout(() => inputRef.current?.focus(), 50);
+   530→    },
+   531→    [messages, isThinking, triggerAgent, autoSpeak, speak],
+   532→  );
+   533→
+   534→  // ── Recording ─────────────────────────────────────────────────────────
+   535→  const startRecording = useCallback(async () => {
+   536→    try {
+   537→      if (!navigator.mediaDevices?.getUserMedia) {
+   538→        throw new Error("Microphone API not supported in this browser");
+   539→      }
+   540→      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+   541→      streamRef.current = stream;
+   542→
+   543→      // Pick the best mime type the browser supports.
+   544→      const candidateTypes = [
+   545→        "audio/webm;codecs=opus",
+   546→        "audio/webm",
+   547→        "audio/ogg;codecs=opus",
+   548→        "audio/mp4",
+   549→      ];
+   550→      const mimeType =
+   551→        candidateTypes.find((t) =>
+   552→          typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported
+   553→            ? MediaRecorder.isTypeSupported(t)
+   554→            : false,
+   555→        ) ?? "";
+   556→
+   557→      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+   558→      recordedChunksRef.current = [];
+   559→      recorder.ondataavailable = (e) => {
+   560→        if (e.data && e.data.size > 0) {
+   561→          recordedChunksRef.current.push(e.data);
+   562→        }
+   563→      };
+   564→      recorder.onstop = handleRecordingStop;
+   565→      recorder.start();
+   566→      mediaRecorderRef.current = recorder;
+   567→      setIsRecording(true);
+   568→      toast.success("Recording started — click stop to transcribe");
+   569→    } catch (e) {
+   570→      const msg = e instanceof Error ? e.message : String(e);
+   571→      toast.error(`Microphone unavailable: ${msg}`);
+   572→      stopMicStream();
+   573→      setIsRecording(false);
+   574→    }
+   575→  }, []);
+   576→
+   577→  async function handleRecordingStop() {
+   578→    const chunks = recordedChunksRef.current;
+   579→    if (!chunks.length) {
+   580→      toast.error("Empty recording — nothing to transcribe");
+   581→      return;
+   582→    }
+   583→    const blob = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
+   584→    if (blob.size < 200) {
+   585→      toast.error("Recording too short — try again");
+   586→      return;
+   587→    }
+   588→    try {
+   589→      const dataUri = await blobToBase64(blob);
+   590→      const res = await fetch("/api/chat/asr", {
+   591→        method: "POST",
+   592→        headers: { "Content-Type": "application/json" },
+   593→        body: JSON.stringify({ audio: dataUri }),
+   594→      });
+   595→      if (!res.ok) {
+   596→        const j = await res.json().catch(() => ({}));
+   597→        throw new Error(j.error || `ASR HTTP ${res.status}`);
+   598→      }
+   599→      const data = await res.json();
+   600→      const text: string = (data?.text ?? "").trim();
+   601→      if (!text) {
+   602→        toast.error("No speech detected in recording");
+   603→        return;
+   604→      }
+   605→      toast.success("Transcribed — sending…");
+   606→      // Fill the textarea AND auto-send.
+   607→      setInput("");
+   608→      await sendMessage(text, { skipAgent: false });
+   609→    } catch (e) {
+   610→      const msg = e instanceof Error ? e.message : String(e);
+   611→      toast.error(`Speech-to-text failed: ${msg}`);
+   612→      setMessages((prev) => [
+   613→        ...prev,
+   614→        { id: uid("err"), role: "system", content: `⚠️ ASR failed: ${msg}` },
+   615→      ]);
+   616→    }
+   617→  }
+   618→
+   619→  const stopRecording = useCallback(() => {
+   620→    const recorder = mediaRecorderRef.current;
+   621→    if (recorder && recorder.state !== "inactive") {
+   622→      recorder.stop(); // triggers onstop → handleRecordingStop
+   623→    }
+   624→    setIsRecording(false);
+   625→    // Stop the mic stream (tracks) — the onstop handler is async; the stream
+   626→    // is fully released in the cleanup effect on unmount.
+   627→    streamRef.current?.getTracks().forEach((t) => t.stop());
+   628→    streamRef.current = null;
+   629→  }, []);
+   630→
+   631→  // ── Keyboard: Enter to send, Shift+Enter for newline ─────────────────
+   632→  const onInputKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+   633→    if (e.key === "Enter" && !e.shiftKey) {
+   634→      e.preventDefault();
+   635→      void sendMessage(input);
+   636→    }
+   637→  };
+   638→
+   639→  // ── Quick-action chips ────────────────────────────────────────────────
+   640→  const onChipClick = (chip: Chip) => {
+   641→    if (chip.agentId) {
+   642→      void triggerAgent(chip.agentId, chip.jobId);
+   643→    } else {
+   644→      void sendMessage(chip.label);
+   645→    }
+   646→  };
+   647→
+   648→  // ── Clear chat ────────────────────────────────────────────────────────
+   649→  const clearChat = () => {
+   650→    setMessages([WELCOME]);
+   651→    toast.success("Chat cleared");
+   652→  };
+   653→
+   654→  // Memoised list of messages for render
+   655→  const renderedMessages = useMemo(() => messages, [messages]);
+   656→
+   657→  return (
+   658→    <TooltipProvider>
+   659→      <div
+   660→        className="fixed bottom-20 right-4 z-50"
+   661→        role="region"
+   662→        aria-label="MedFlow AI Operations Copilot"
+   663→      >
+   664→        {/* Hidden audio element for TTS playback */}
+   665→        <audio ref={audioRef} className="hidden" aria-hidden="true" preload="none" />
+   666→
+   667→        <AnimatePresence>
+   668→          {isOpen && (
+   669→            <motion.div
+   670→              key="panel"
+   671→              ref={panelRef}
+   672→              initial={{ opacity: 0, scale: 0.92, y: 12 }}
+   673→              animate={{ opacity: 1, scale: 1, y: 0 }}
+   674→              exit={{ opacity: 0, scale: 0.92, y: 12 }}
+   675→              transition={{ duration: 0.18, ease: "easeOut" }}
+   676→              className={cn(
+   677→                "flex h-[min(70vh,560px)] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl sm:w-96",
+   678→              )}
+   679→              role="dialog"
+   680→              aria-modal="false"
+   681→              aria-label="MedFlow Copilot chat"
+   682→            >
+   683→              {/* ── Header ───────────────────────────────────────────── */}
+   684→              <header className="mf-gradient flex items-center justify-between gap-2 px-3 py-2.5 text-primary-foreground">
+   685→                <div className="flex min-w-0 items-center gap-2">
+   686→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/25">
+   687→                    <Bot className="h-4 w-4" />
+   688→                  </div>
+   689→                  <div className="min-w-0">
+   690→                    <p className="truncate text-sm font-semibold leading-tight">
+   691→                      MedFlow Copilot
+   692→                    </p>
+   693→                    <p className="truncate text-[10px] text-white/75">
+   694→                      Voice + agent orchestration
+   695→                    </p>
+   696→                  </div>
+   697→                </div>
+   698→                <div className="flex shrink-0 items-center gap-1">
+   699→                  <Tooltip>
+   700→                    <TooltipTrigger asChild>
+   701→                      <Button
+   702→                        ref={firstFocusableRef}
+   703→                        size="icon"
+   704→                        variant="ghost"
+   705→                        onClick={clearChat}
+   706→                        className="h-8 w-8 text-primary-foreground hover:bg-white/15"
+   707→                        aria-label="Clear chat"
+   708→                      >
+   709→                        <Trash2 className="h-4 w-4" />
+   710→                      </Button>
+   711→                    </TooltipTrigger>
+   712→                    <TooltipContent side="bottom">Clear chat</TooltipContent>
+   713→                  </Tooltip>
+   714→                  <Tooltip>
+   715→                    <TooltipTrigger asChild>
+   716→                      <Button
+   717→                        size="icon"
+   718→                        variant="ghost"
+   719→                        onClick={() => setIsOpen(false)}
+   720→                        className="h-8 w-8 text-primary-foreground hover:bg-white/15"
+   721→                        aria-label="Close chat"
+   722→                      >
+   723→                        <X className="h-4 w-4" />
+   724→                      </Button>
+   725→                    </TooltipTrigger>
+   726→                    <TooltipContent side="bottom">Close</TooltipContent>
+   727→                  </Tooltip>
+   728→                </div>
+   729→              </header>
+   730→
+   731→              {/* ── Messages ────────────────────────────────────────── */}
+   732→              <div className="mf-scroll flex-1 space-y-3 overflow-y-auto bg-muted/30 p-3">
+   733→                {renderedMessages.map((m) => {
+   734→                  if (m.role === "system") {
+   735→                    return (
+   736→                      <div
+   737→                        key={m.id}
+   738→                        className="mx-auto w-fit max-w-[90%] rounded-md bg-secondary/10 px-2.5 py-1 text-center text-[11px] italic leading-snug text-secondary"
+   739→                      >
+   740→                        {m.content}
+   741→                      </div>
+   742→                    );
+   743→                  }
+   744→                  const isUser = m.role === "user";
+   745→                  return (
+   746→                    <div
+   747→                      key={m.id}
+   748→                      className={cn(
+   749→                        "group flex items-end gap-1.5",
+   750→                        isUser ? "justify-end" : "justify-start",
+   751→                      )}
+   752→                    >
+   753→                      {!isUser && (
+   754→                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full mf-gradient">
+   755→                          <Sparkles className="h-3 w-3 text-white" />
+   756→                        </div>
+   757→                      )}
+   758→                      <div
+   759→                        className={cn(
+   760→                          "relative max-w-[80%] whitespace-pre-wrap break-words px-3 py-2 text-[13px] leading-snug shadow-sm",
+   761→                          isUser
+   762→                            ? "rounded-2xl rounded-br-sm bg-primary text-primary-foreground"
+   763→                            : "rounded-2xl rounded-bl-sm bg-muted text-foreground",
+   764→                        )}
+   765→                      >
+   766→                        {m.content}
+   767→                        {!isUser && (
+   768→                          <button
+   769→                            type="button"
+   770→                            onClick={() => void speak(m.content)}
+   771→                            aria-label="Speak this reply"
+   772→                            className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-secondary/20 hover:text-secondary group-hover:opacity-100"
+   773→                          >
+   774→                            <Volume2 className="h-3.5 w-3.5" />
+   775→                          </button>
+   776→                        )}
+   777→                      </div>
+   778→                    </div>
+   779→                  );
+   780→                })}
+   781→
+   782→                {isThinking && (
+   783→                  <div className="flex items-end gap-1.5">
+   784→                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full mf-gradient">
+   785→                      <Sparkles className="h-3 w-3 text-white" />
+   786→                    </div>
+   787→                    <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-muted px-3 py-2.5 shadow-sm">
+   788→                      <span className="mf-typing-dot h-1.5 w-1.5 rounded-full bg-secondary" />
+   789→                      <span className="mf-typing-dot h-1.5 w-1.5 rounded-full bg-secondary" />
+   790→                      <span className="mf-typing-dot h-1.5 w-1.5 rounded-full bg-secondary" />
+   791→                    </div>
+   792→                  </div>
+   793→                )}
+   794→
+   795→                <div ref={messagesEndRef} />
+   796→              </div>
+   797→
+   798→              {/* ── Quick-action chips ──────────────────────────────── */}
+   799→              <div className="mf-scroll flex gap-2 overflow-x-auto border-t border-border bg-card px-3 py-2">
+   800→                {QUICK_CHIPS.map((chip) => {
+   801→                  const isAgent = !!chip.agentId;
+   802→                  return (
+   803→                    <button
+   804→                      key={chip.label}
+   805→                      type="button"
+   806→                      onClick={() => onChipClick(chip)}
+   807→                      className={cn(
+   808→                        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+   809→                        isAgent
+   810→                          ? "border-secondary/40 bg-secondary/10 text-secondary hover:bg-secondary/20"
+   811→                          : "border-border bg-background text-foreground hover:bg-muted",
+   812→                      )}
+   813→                      aria-label={chip.label}
+   814→                    >
+   815→                      {isAgent && <Sparkles className="h-3 w-3" />}
+   816→                      {chip.label}
+   817→                    </button>
+   818→                  );
+   819→                })}
+   820→              </div>
+   821→
+   822→              {/* ── Input area ──────────────────────────────────────── */}
+   823→              <div className="border-t border-border bg-card p-3">
+   824→                {isRecording ? (
+   825→                  <div className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-3 py-2 dark:bg-red-950/30">
+   826→                    <span className="mf-rec-pulse h-3 w-3 shrink-0 rounded-full bg-red-500" />
+   827→                    <span className="flex-1 text-[12px] font-medium text-red-700 dark:text-red-300">
+   828→                      Recording {formatTimer(recSeconds)}…
+   829→                    </span>
+   830→                    <Button
+   831→                      type="button"
+   832→                      size="sm"
+   833→                      variant="destructive"
+   834→                      onClick={stopRecording}
+   835→                      className="h-8 gap-1 px-2.5"
+   836→                      aria-label="Stop recording"
+   837→                    >
+   838→                      <Square className="h-3.5 w-3.5" /> Stop
+   839→                    </Button>
+   840→                  </div>
+   841→                ) : (
+   842→                  <div className="flex items-end gap-2">
+   843→                    <Tooltip>
+   844→                      <TooltipTrigger asChild>
+   845→                        <Button
+   846→                          type="button"
+   847→                          size="icon"
+   848→                          variant="outline"
+   849→                          onClick={() => void startRecording()}
+   850→                          className="h-10 w-10 shrink-0 rounded-full border-secondary/40 text-secondary hover:bg-secondary/10"
+   851→                          aria-label="Hold to speak"
+   852→                          disabled={isThinking}
+   853→                        >
+   854→                          <Mic className="h-4 w-4" />
+   855→                        </Button>
+   856→                      </TooltipTrigger>
+   857→                      <TooltipContent side="top">Click to record voice</TooltipContent>
+   858→                    </Tooltip>
+   859→
+   860→                    <Textarea
+   861→                      ref={inputRef}
+   862→                      value={input}
+   863→                      onChange={(e) => setInput(e.target.value)}
+   864→                      onKeyDown={onInputKeyDown}
+   865→                      placeholder="Ask the Copilot…  (Enter to send)"
+   866→                      rows={1}
+   867→                      className="mf-scroll min-h-10 max-h-24 resize-none bg-background px-3 py-2 text-[13px] leading-snug"
+   868→                      aria-label="Message the MedFlow Copilot"
+   869→                      disabled={isThinking}
+   870→                    />
+   871→
+   872→                    <Tooltip>
+   873→                      <TooltipTrigger asChild>
+   874→                        <Button
+   875→                          type="button"
+   876→                          size="icon"
+   877→                          onClick={() => void sendMessage(input)}
+   878→                          disabled={!input.trim() || isThinking}
+   879→                          className="h-10 w-10 shrink-0 rounded-full mf-gradient text-primary-foreground hover:opacity-90"
+   880→                          aria-label="Send message"
+   881→                        >
+   882→                          <SendHorizontal className="h-4 w-4" />
+   883→                        </Button>
+   884→                      </TooltipTrigger>
+   885→                      <TooltipContent side="top">Send</TooltipContent>
+   886→                    </Tooltip>
+   887→                  </div>
+   888→                )}
+   889→
+   890→                {/* Voice settings footer */}
+   891→                <div className="mt-2 flex items-center justify-between gap-2">
+   892→                  <div className="flex items-center gap-1.5">
+   893→                    <Radio className="h-3 w-3 text-secondary" />
+   894→                    <span className="text-[10px] text-muted-foreground">
+   895→                      Voice:{" "}
+   896→                      <select
+   897→                        value={voice}
+   898→                        onChange={(e) => setVoice(e.target.value)}
+   899→                        className="bg-transparent text-[10px] font-medium text-foreground focus:outline-none"
+   900→                        aria-label="Select TTS voice"
+   901→                      >
+   902→                        <option value="tongtong">tongtong</option>
+   903→                        <option value="echo">echo</option>
+   904→                        <option value="chime">chime</option>
+   905→                        <option value="breeze">breeze</option>
+   906→                      </select>
+   907→                    </span>
+   908→                  </div>
+   909→                  <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+   910→                    <span>Auto-speak replies</span>
+   911→                    <Switch
+   912→                      checked={autoSpeak}
+   913→                      onCheckedChange={setAutoSpeak}
+   914→                      aria-label="Toggle auto-speak"
+   915→                    />
+   916→                    <Badge
+   917→                      variant="outline"
+   918→                      className="ml-1 h-4 px-1.5 text-[9px] text-muted-foreground"
+   919→                    >
+   920→                      {autoSpeak ? "on" : "off"}
+   921→                    </Badge>
+   922→                  </label>
+   923→                </div>
+   924→              </div>
+   925→            </motion.div>
+   926→          )}
+   927→        </AnimatePresence>
+   928→
+   929→        {/* ── Floating Action Button (collapsed state) ─────────────────── */}
+   930→        <AnimatePresence>
+   931→          {!isOpen && (
+   932→            <motion.div
+   933→              key="fab"
+   934→              initial={{ opacity: 0, scale: 0.7 }}
+   935→              animate={{ opacity: 1, scale: 1 }}
+   936→              exit={{ opacity: 0, scale: 0.7 }}
+   937→              transition={{ duration: 0.18 }}
+   938→              className="flex flex-col items-center"
+   939→            >
+   940→              <Tooltip>
+   941→                <TooltipTrigger asChild>
+   942→                  <button
+   943→                    type="button"
+   944→                    onClick={() => setIsOpen(true)}
+   945→                    className="mf-gradient relative flex h-14 w-14 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
+   946→                    aria-label="Open MedFlow AI Operations Copilot"
+   947→                  >
+   948→                    <Bot className="h-7 w-7" />
+   949→                    {/* Online dot */}
+   950→                    <span className="mf-pulse absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white">
+   951→                      <span className="h-1.5 w-1.5 rounded-full bg-white" />
+   952→                    </span>
+   953→                  </button>
+   954→                </TooltipTrigger>
+   955→                <TooltipContent side="left">AI Operations Copilot</TooltipContent>
+   956→              </Tooltip>
+   957→              <span className="mt-1 hidden rounded-full bg-card px-2 py-0.5 text-[9px] font-medium text-muted-foreground shadow-sm sm:block">
+   958→                Ask Copilot
+   959→              </span>
+   960→            </motion.div>
+   961→          )}
+   962→        </AnimatePresence>
+   963→      </div>
+   964→    </TooltipProvider>
+   965→  );
+   966→}
+   967→
+   968→export default VoiceChatbot;
+   969→

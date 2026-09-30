@@ -6,8 +6,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowRight, Bot, ChevronRight, Edit3, GitBranch, Plus, RefreshCw, Save, ShieldCheck,
-  Stethoscope, Trash2, Workflow, Zap,
+  ArrowRight, Bot, CheckCircle2, ChevronRight, Edit3, GitBranch, Plus, RefreshCw, Save, ShieldCheck,
+  Stethoscope, Trash2, TrendingDown, TrendingUp, Workflow, XCircle, Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,9 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { useFetch } from "@/hooks/medflow/useFetch";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -428,6 +431,9 @@ export function WorkflowRouting() {
         </Card>
       </div>
 
+      {/* ── Self-Optimizing Routing Engine (A13) — additive enhancement ── */}
+      <SelfOptimizingRoutingPanel />
+
       {/* ── New Rule Dialog ───────────────────────────────────────────── */}
       <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
         <DialogContent className="max-w-2xl">
@@ -528,6 +534,303 @@ export function WorkflowRouting() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── Self-Optimizing Routing Engine (A13) ────────────────────────────────────
+// Continuously learns from editor performance + auto-adjusts routing weights.
+// Mirrors /api/medflow/routing-optimization response shape.
+
+interface EditorPerf {
+  editor: string;
+  role: string;
+  specialty: string;
+  jobs: number;
+  avg_qa: number;
+  avg_tat_h: number;
+  rework_rate: number;
+  trend: "improving" | "stable" | "declining" | string;
+  recommended_weight: number;
+}
+
+interface AutoAdjustment {
+  date: string;
+  adjustment: string;
+  impact: string;
+  auto_applied: boolean;
+}
+
+interface BeforeAfter {
+  avg_tat_before: number;
+  avg_tat_after: number;
+  improvement_pct: number;
+  rework_before: number;
+  rework_after: number;
+  // Note: API returns duplicate `improvement_pct` keys; last one wins in JS parse.
+  qa_before: number;
+  qa_after: number;
+  [k: string]: number | string;
+}
+
+interface LearningMetrics {
+  training_data_points: number;
+  features_used: number;
+  model: string;
+  validation_accuracy: number;
+}
+
+interface RoutingOptimizationResponse {
+  optimization_enabled: boolean;
+  last_optimization: string;
+  next_optimization: string;
+  cadence: string;
+  editor_performance: EditorPerf[];
+  auto_adjustments: AutoAdjustment[];
+  before_after: BeforeAfter;
+  learning_metrics: LearningMetrics;
+}
+
+function SelfOptimizingRoutingPanel() {
+  const { data, loading, error, refresh } = useFetch<RoutingOptimizationResponse>("/api/medflow/routing-optimization");
+
+  return (
+    <Card className="mt-4">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="h-4 w-4 text-secondary" /> Self-Optimizing Routing Engine
+          </CardTitle>
+          <CardDescription className="text-xs">
+            The routing engine learns from editor performance + auto-adjusts weights — no manual tuning required.
+          </CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+            data?.optimization_enabled
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+              : "border-border bg-muted text-muted-foreground",
+          )}>
+            {data?.optimization_enabled ? <CheckCircle2 className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
+            {data?.optimization_enabled ? "Optimization enabled ✓" : "Disabled"}
+          </span>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <SectionLoading rows={3} />
+        ) : error || !data ? (
+          <SectionError message={error ?? "Unknown"} onRetry={refresh} />
+        ) : (
+          <>
+            {/* Cadence + dates */}
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/20 p-2 text-[11px]">
+              <Badge variant="outline" className="bg-secondary/10 text-secondary border-secondary/30 text-[10px]">
+                <RefreshCw className="mr-1 h-2.5 w-2.5" /> cadence: {data.cadence}
+              </Badge>
+              <span className="text-muted-foreground">Last optimization: <span className="font-semibold text-foreground">{data.last_optimization.split("T")[0]}</span></span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">Next: <span className="font-semibold text-foreground">{data.next_optimization.split("T")[0]}</span></span>
+            </div>
+
+            {/* Before → After KPI row */}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <BeforeAfterCard
+                label="Avg TAT"
+                before={`${data.before_after.avg_tat_before}h`}
+                after={`${data.before_after.avg_tat_after}h`}
+                delta={`-${Math.round(((data.before_after.avg_tat_before - data.before_after.avg_tat_after) / data.before_after.avg_tat_before) * 100)}%`}
+                tone="emerald"
+              />
+              <BeforeAfterCard
+                label="Rework Rate"
+                before={`${Math.round(data.before_after.rework_before * 100)}%`}
+                after={`${Math.round(data.before_after.rework_after * 100)}%`}
+                delta={`-${Math.round(((data.before_after.rework_before - data.before_after.rework_after) / data.before_after.rework_before) * 100)}%`}
+                tone="emerald"
+              />
+              <BeforeAfterCard
+                label="QA Score"
+                before={`${data.before_after.qa_before}`}
+                after={`${data.before_after.qa_after}`}
+                delta={`+${(data.before_after.qa_after - data.before_after.qa_before).toFixed(1)}%`}
+                tone="emerald"
+              />
+            </div>
+
+            {/* Editor Performance table */}
+            <div className="mt-4">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Editor Performance (auto-ranked)
+              </p>
+              <div className="mf-scroll max-h-[420px] overflow-y-auto rounded-lg border border-border">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card">
+                    <TableRow>
+                      <TableHead className="text-[11px]">Editor</TableHead>
+                      <TableHead className="text-[11px]">Role</TableHead>
+                      <TableHead className="text-[11px]">Specialty</TableHead>
+                      <TableHead className="text-[11px]">Jobs</TableHead>
+                      <TableHead className="text-[11px]">Avg QA</TableHead>
+                      <TableHead className="text-[11px]">Avg TAT</TableHead>
+                      <TableHead className="text-[11px]">Rework</TableHead>
+                      <TableHead className="text-[11px]">Trend</TableHead>
+                      <TableHead className="text-[11px]">Weight</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.editor_performance.map((e, i) => {
+                      const trendIcon =
+                        e.trend === "improving" ? <TrendingUp className="h-3 w-3 text-emerald-600" /> :
+                        e.trend === "declining" ? <TrendingDown className="h-3 w-3 text-red-600" /> :
+                        <ArrowRight className="h-3 w-3 text-muted-foreground" />;
+                      const trendClass =
+                        e.trend === "improving" ? "bg-emerald-50 text-emerald-700 border-emerald-300" :
+                        e.trend === "declining" ? "bg-red-50 text-red-700 border-red-300" :
+                        "bg-muted text-muted-foreground border-border";
+                      const weightClass =
+                        e.recommended_weight >= 1.3 ? "bg-emerald-100 text-emerald-700 border-emerald-300" :
+                        e.recommended_weight >= 1.0 ? "bg-secondary/15 text-secondary border-secondary/30" :
+                        "bg-amber-100 text-amber-800 border-amber-300";
+                      return (
+                        <motion.tr
+                          key={e.editor}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.15, delay: i * 0.03 }}
+                          className="hover:bg-muted/40"
+                        >
+                          <TableCell className="text-[12px] font-semibold text-foreground">{e.editor}</TableCell>
+                          <TableCell className="text-[11px] text-muted-foreground">{e.role}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">{e.specialty}</Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-[11px] text-foreground">{e.jobs}</TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "font-mono text-[11px] font-semibold",
+                              e.avg_qa >= 90 ? "text-emerald-700" : e.avg_qa >= 85 ? "text-amber-700" : "text-red-700",
+                            )}>
+                              {e.avg_qa}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-mono text-[11px] text-foreground">{e.avg_tat_h}h</TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "font-mono text-[11px]",
+                              e.rework_rate <= 0.05 ? "text-emerald-700" : e.rework_rate <= 0.08 ? "text-amber-700" : "text-red-700",
+                            )}>
+                              {Math.round(e.rework_rate * 100)}%
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize",
+                              trendClass,
+                            )}>
+                              {trendIcon}
+                              {e.trend}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[11px] font-bold",
+                              weightClass,
+                            )}>
+                              ×{e.recommended_weight.toFixed(1)}
+                            </span>
+                          </TableCell>
+                        </motion.tr>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Auto-Adjustments */}
+            <div className="mt-4">
+              <p className="mb-2 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <Zap className="h-3 w-3 text-secondary" /> Auto-Adjustments (last run)
+              </p>
+              <div className="space-y-2">
+                {data.auto_adjustments.map((adj, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: i * 0.05 }}
+                    className="rounded-lg border border-border bg-card p-2"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {adj.auto_applied
+                          ? <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          : <XCircle className="h-3 w-3 text-red-500" />}
+                        <span className="font-mono text-[10px] text-muted-foreground">{adj.date}</span>
+                      </div>
+                      {adj.auto_applied && (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px]">
+                          Auto-applied ✓
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[12px] text-foreground">{adj.adjustment}</p>
+                    {adj.impact && (
+                      <p className="mt-0.5 text-[10px] italic text-emerald-700">↳ {adj.impact}</p>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* Learning metrics footer */}
+            <div className="mt-4 grid grid-cols-2 gap-2 rounded-lg border border-secondary/30 bg-secondary/5 p-3 sm:grid-cols-4">
+              <LearningStat label="Training data" value={data.learning_metrics.training_data_points.toLocaleString()} />
+              <LearningStat label="Features used" value={String(data.learning_metrics.features_used)} />
+              <LearningStat label="Model" value={data.learning_metrics.model} />
+              <LearningStat label="Validation acc" value={`${(data.learning_metrics.validation_accuracy * 100).toFixed(1)}%`} />
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function BeforeAfterCard({
+  label, before, after, delta, tone,
+}: {
+  label: string; before: string; after: string; delta: string; tone: "emerald" | "amber" | "red";
+}) {
+  const toneClass =
+    tone === "emerald" ? "text-emerald-700 bg-emerald-50 border-emerald-300" :
+    tone === "amber" ? "text-amber-700 bg-amber-50 border-amber-300" :
+    "text-red-700 bg-red-50 border-red-300";
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-sm font-bold text-muted-foreground line-through decoration-red-400/60">{before}</span>
+        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+        <span className="text-lg font-extrabold text-foreground">{after}</span>
+      </div>
+      <span className={cn("mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold", toneClass)}>
+        {delta}
+      </span>
+    </div>
+  );
+}
+
+function LearningStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-center">
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-mono text-sm font-bold text-foreground">{value}</p>
     </div>
   );
 }

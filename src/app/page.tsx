@@ -7,6 +7,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { AppShell } from "@/components/medflow/AppShell";
 import { VoiceChatbot } from "@/components/medflow/VoiceChatbot";
+import { VoiceOps } from "@/components/medflow/VoiceOps";
 import { Landing } from "@/components/medflow/sections/Landing";
 import { OverviewDashboard } from "@/components/medflow/sections/OverviewDashboard";
 import { JobsKanban } from "@/components/medflow/sections/JobsKanban";
@@ -27,6 +28,10 @@ import { WorkforceMgmt } from "@/components/medflow/sections/WorkforceMgmt";
 import { SmartFhir } from "@/components/medflow/sections/SmartFhir";
 import { PatientPortal } from "@/components/medflow/sections/PatientPortal";
 import { HipaaSra } from "@/components/medflow/sections/HipaaSra";
+import { AutoPilot } from "@/components/medflow/sections/AutoPilot";
+import { AutonomousSOC } from "@/components/medflow/sections/AutonomousSOC";
+import { ModelHealth } from "@/components/medflow/sections/ModelHealth";
+import { Explainability } from "@/components/medflow/sections/Explainability";
 import { StripeBilling } from "@/components/medflow/sections/StripeBilling";
 import { AuditSecurity } from "@/components/medflow/sections/AuditSecurity";
 import { Settings } from "@/components/medflow/sections/Settings";
@@ -82,6 +87,14 @@ export default function Home() {
         <Landing onEnter={() => setEntered(true)} />
         {/* Floating voice-enabled AI chatbot (additive overlay — Task 7) */}
         <VoiceChatbot />
+        {/* Voice Operations widget (Task 19) — hands-free platform control.
+            On the landing page, navigating via voice also enters the app. */}
+        <VoiceOps
+          onNavigate={(sectionId: string) => {
+            setEntered(true);
+            setActive(sectionId);
+          }}
+        />
       </>
     );
   }
@@ -108,6 +121,9 @@ export default function Home() {
       {active === "upload" && (
         <UploadDictation onSubmitted={() => { setActive("jobs"); onAdvanced(); }} />
       )}
+      {active === "autopilot" && <AutoPilot />}
+      {active === "model-health" && <ModelHealth />}
+      {active === "explainability" && <Explainability />}
       {active === "streaming" && <LiveDictation />}
       {active === "documents" && <Documents />}
       {active === "clarifications" && <Clarifications />}
@@ -125,6 +141,7 @@ export default function Home() {
       {active === "client-portal" && <ClientPortal />}
       {active === "mobile-app" && <MobileApp />}
       {active === "team" && <Team />}
+      {active === "autonomous-soc" && <AutonomousSOC />}
       {active === "billing" && <StripeBilling />}
       {active === "audit" && <AuditSecurity />}
       {active === "sra" && <HipaaSra />}
@@ -182,6 +199,8 @@ export default function Home() {
 
       {/* Floating voice-enabled AI chatbot (additive overlay — Task 7) */}
       <VoiceChatbot />
+      {/* Voice Operations widget (Task 19) — hands-free platform control */}
+      <VoiceOps onNavigate={setActive} />
     </AppShell>
   );
 }

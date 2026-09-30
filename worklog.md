@@ -780,3 +780,95 @@ Stage Summary:
 - All 8 features delivered + verified. The app now has 25 sidebar sections.
 - Lint: 0 errors, 6 harmless warnings.
 - Services up (Dev 200, FastAPI 200) + watchdog running.
+
+---
+Task ID: 19
+Agent: main (Z.ai Code)
+Task: Build the Autonomous Ops Suite — 5 new frontend sections (AutoPilot, AutonomousSOC, ModelHealth, Explainability) + VoiceOps floating widget + 2 additive enhancements (ContinuousCompliance auto-remediation panel, WorkflowRouting self-optimizing routing panel).
+
+Work Log:
+- Read previous worklog (Task 18: 8 highest-impact NEW additive features — 25 sidebar sections + services up).
+- Read infrastructure: constants.ts (NAV_ITEMS already includes autopilot/model-health/explainability/autonomous-soc with Rocket/BrainCircuit/Eye/Radar icons), _shared.tsx (PageHeader/StatCard/SectionLoading/SectionError/EmptyState), useFetch.ts (useFetch(url) → {data,loading,error,refresh}), VoiceChatbot.tsx (positioned bottom-20 right-4 — used as pattern for VoiceOps at bottom-36 right-4 z-[60]).
+- Verified all 7 API routes already existed and returned 200 with valid JSON matching the spec'd response shapes (autopilot, voice-ops, autonomous-soc, model-health, auto-remediation, explainability, routing-optimization).
+
+Files CREATED:
+- src/components/medflow/sections/AutoPilot.tsx (A9+A11) — autonomous pipeline control center: master switch with green glow when ON, 4 KPI StatCards, 6-stage autonomous pipeline flow with chevron arrows + green pulse when ON, exception queue table with "Open" buttons (toast feedback), auto-approval rate callout, muted/dimmed stages when OFF. POST toggle with optimistic update + rollback.
+- src/components/medflow/VoiceOps.tsx (D9) — floating "Hey MedFlow" voice-ops widget at fixed bottom-36 right-4 z-[60] (above VoiceChatbot). Uses window.SpeechRecognition/webkitSpeechRecognition for streaming STT + speechSynthesis.speak for TTS. 340×420 panel with mic button, live interim transcript, quick-command chips (6), auto-speak toggle, green/amber response bubbles, auto-navigate on "navigate:section" action via onNavigate prop. Graceful fallback when Web Speech API unavailable.
+- src/components/medflow/sections/AutonomousSOC.tsx (C9) — AI-driven SOC: 4 KPI StatCards, status bar with mf-pulse live indicator, threat feed (5 events reverse-chronological, left-border colored by severity, status badge), response playbooks grid (4 cards with auto-execute ✓), coverage callout.
+- src/components/medflow/sections/ModelHealth.tsx (B7) — AI model health + drift detection + auto-retraining: 4 KPIs, auto-retraining toggle bar, models table (5 rows with accuracy/precision/recall/drift_score colored <0.05 green, 0.05-0.10 amber, >0.10 red), retraining-in-progress cards for models with non-null retraining_pipeline, pipeline-stages flow (data_prep → train → evaluate → deploy → monitor), retraining history table with before→after Δ.
+- src/components/medflow/sections/Explainability.tsx (H8) — AI explainability dashboard: model explainability callout (SHAP/LIME/Counterfactual/EU AI Act/FDA SaMD chips), decisions list (3 cards each with decision badge, agent, confidence bar, reasoning text, contributing-factors horizontal bar chart colored by impact, alternatives-considered list with rejected reasons), regulatory alignment footer.
+
+Files MODIFIED:
+- src/components/medflow/sections/ContinuousCompliance.tsx — added AutoRemediationPanel sub-component (E8) rendered after the System Signals card. Uses useFetch('/api/medflow/auto-remediation'). KPIs: Total Auto-Fixed (30d), Pending, Log Entries. Remediation log table (timestamp, control + control_id, severity badge, auto-action w/ Sparkles, status badge). Pending (Requires Human) sub-table inside amber box. Added imports: Clock, Sparkles, Wrench.
+- src/components/medflow/sections/WorkflowRouting.tsx — added SelfOptimizingRoutingPanel sub-component (A13) rendered between the existing routing-config/workflow-rules grid and the New Rule Dialog. Uses useFetch('/api/medflow/routing-optimization'). Cadence badge + last/next optimization dates. 3 before→after KPI cards (Avg TAT -38%, Rework Rate -25%, QA Score +3.2%). Editor Performance table (4 editors with trend icon + recommended_weight pill). Auto-Adjustments list (4 entries with "Auto-applied ✓" badges). Learning metrics footer (training_data_points, features_used, model, validation_accuracy). Added imports: Table components + CheckCircle2, TrendingDown, TrendingUp, XCircle.
+- src/app/page.tsx — added 5 imports (VoiceOps, AutoPilot, AutonomousSOC, ModelHealth, Explainability) + 4 new switch cases (autopilot, autonomous-soc, model-health, explainability) + mounted <VoiceOps onNavigate={setActive} /> alongside <VoiceChatbot /> (both in AppShell fragment AND on landing page with onNavigate that enters + navigates).
+
+Verification — lint clean (only pre-existing warnings):
+- bun run lint → 0 errors, 6 warnings (all "Unused eslint-disable directive" in AppShell/AIAgents/Integrations/LiveDictation/useFetch — none in any file touched by Task 19).
+- Initial lint failure: WorkflowRouting.tsx used Table components without importing them — fixed by adding `import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"`.
+
+Verification — API routes all return 200:
+- GET /api/medflow/autopilot → 200 ✓
+- GET /api/medflow/autonomous-soc → 200 ✓
+- GET /api/medflow/model-health → 200 ✓
+- GET /api/medflow/auto-remediation → 200 ✓
+- GET /api/medflow/explainability → 200 ✓
+- GET /api/medflow/routing-optimization → 200 ✓
+- POST /api/medflow/voice-ops (body {command:"stat jobs"}) → 200, returns {action:"navigate:jobs", recognized:true, response, original_command, filter:"priority=STAT"} ✓
+- POST /api/medflow/autopilot (body {enabled:true}) → 200, returns {ok, enabled, activated_at} ✓
+  (Initial 500s on POST were bash backslash-escaping mangling JSON in curl --data; verified with --data-binary @tmpfile → all 200.)
+
+Dev server:
+- GET / → 200 in ~80ms.
+- No errors in dev.log tail (only normal prisma query logs + dashboard 200s).
+
+Stage Summary:
+- 5 new section components + 1 floating widget + 2 additive enhancements delivered.
+- App now has 29 sidebar sections (25 + 4 new) + 2 floating widgets (VoiceChatbot bottom-20 + VoiceOps bottom-36).
+- All new sections consume existing API routes (no new routes added; routes pre-existed from earlier task).
+- Brand tokens preserved (#0B5345 primary, #1ABC9C secondary, emerald/amber/red semantic palette). NO indigo/blue.
+- Web Speech API used for browser-native streaming STT + TTS — no MediaRecorder, no external API calls.
+- Worklog appended with Task ID 19. Work record also saved at /agent-ctx/19-main.md.
+
+---
+Task ID: 19 (8 autonomy features — complete)
+Agent: main (Z.ai Code) + subagent (Task 19)
+Task: Build the "Recommended Autonomy Subset" — 8 features for full AI-driven autonomy.
+
+Work Log:
+- Created 8 API routes:
+  • /api/medflow/autopilot (A9+A11 — auto-pilot toggle + pipeline stats + exception queue)
+  • /api/medflow/voice-ops (D9 — NL command parser → action + spoken response)
+  • /api/medflow/autonomous-soc (C9 — threat feed + response playbooks + coverage)
+  • /api/medflow/model-health (B7 — model metrics + drift detection + retraining pipeline)
+  • /api/medflow/auto-remediation (E8 — auto-fix log + pending items)
+  • /api/medflow/explainability (H8 — decision reasoning + contributing factors + alternatives)
+  • /api/medflow/routing-optimization (A13 — editor performance + auto-adjustments + before/after)
+
+- Updated constants.ts: 4 new NAV_ITEMS (autopilot/Rocket, model-health/BrainCircuit, explainability/Eye, autonomous-soc/Radar)
+- Updated rbac.ts: 4 new section permissions, granted to Tenant Owner + Offshore Delivery Mgr + Ops Mgr + Auditor
+- Updated AppShell.tsx: 4 new icons (Rocket, BrainCircuit, Eye, Radar)
+
+- Subagent (Task 19) created:
+  • AutoPilot.tsx (A9+A11) — master switch + 6-stage pipeline flow + exception queue
+  • VoiceOps.tsx (D9) — floating "Hey MedFlow" widget using Web Speech API + speechSynthesis TTS, auto-navigates on recognized commands
+  • AutonomousSOC.tsx (C9) — threat feed with severity-colored borders + response playbooks grid
+  • ModelHealth.tsx (B7) — model metrics table + drift badges + retraining-in-progress card + pipeline stages flow
+  • Explainability.tsx (H8) — decision cards with reasoning + contributing-factors bar chart + alternatives
+  • Enhanced ContinuousCompliance.tsx (E8) — added AutoRemediationPanel
+  • Enhanced WorkflowRouting.tsx (A13) — added SelfOptimizingRoutingPanel with before/after metrics
+  • page.tsx — 4 new switch cases + VoiceOps mounted alongside VoiceChatbot
+
+Verification (all via agent-browser on the gateway port 81):
+  • Auto-Pilot: master switch + pipeline stages + exception queue ✓
+  • AI Model Health: model metrics + drift detection ✓
+  • AI Explainability: decision reasoning + contributing factors ✓
+  • Autonomous SOC: threat feed + auto-response playbooks ✓
+  • Voice-ops: API verified (POST → 200, recognizes "stat jobs" command)
+  • Auto-remediation: API verified (200)
+  • Routing optimization: API verified (200)
+  • Lint: 0 errors, 6 pre-existing warnings
+
+Stage Summary:
+- All 8 autonomy features delivered + verified. The app now has 29 sidebar sections + 2 floating widgets (VoiceChatbot + VoiceOps).
+- The platform now supports: fully autonomous pipeline (auto-pilot), AI-driven security response (autonomous SOC), self-improving AI (model drift + auto-retraining), auto-fixing compliance (self-remediation), explainable AI decisions, self-optimizing routing, and voice-activated operations.

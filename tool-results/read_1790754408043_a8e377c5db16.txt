@@ -1,0 +1,534 @@
+     1→"use client";
+     2→// MedFlow — Workflow & Routing (J7 + A5)
+     3→// Two-panel: confidence-calibrated routing config (left) + visual workflow rule
+     4→// builder (right) with rule CRUD + a flow diagram.
+     5→
+     6→import { useEffect, useMemo, useState } from "react";
+     7→import { motion, AnimatePresence } from "framer-motion";
+     8→import {
+     9→  ArrowRight, Bot, ChevronRight, Edit3, GitBranch, Plus, RefreshCw, Save, ShieldCheck,
+    10→  Stethoscope, Trash2, Workflow, Zap,
+    11→} from "lucide-react";
+    12→import { Badge } from "@/components/ui/badge";
+    13→import { Button } from "@/components/ui/button";
+    14→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+    15→import {
+    16→  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    17→} from "@/components/ui/dialog";
+    18→import { Input } from "@/components/ui/input";
+    19→import { Label } from "@/components/ui/label";
+    20→import {
+    21→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    22→} from "@/components/ui/select";
+    23→import { Slider } from "@/components/ui/slider";
+    24→import { Switch } from "@/components/ui/switch";
+    25→import { useFetch } from "@/hooks/medflow/useFetch";
+    26→import { cn } from "@/lib/utils";
+    27→import { toast } from "sonner";
+    28→import { EmptyState, PageHeader, SectionError, SectionLoading } from "./_shared";
+    29→
+    30→// ── Types ────────────────────────────────────────────────────────────────────
+    31→interface RoutingConfig {
+    32→  high_confidence_threshold: number;
+    33→  low_confidence_threshold: number;
+    34→  high_confidence_action: string;
+    35→  low_confidence_action: string;
+    36→  default_assignment: string;
+    37→  fairness_window: string;
+    38→  escalation_threshold_min: number;
+    39→  auto_assign_enabled: boolean;
+    40→}
+    41→
+    42→interface RuleCondition {
+    43→  field: string;
+    44→  op: string;
+    45→  value: string | number;
+    46→}
+    47→interface RuleAction {
+    48→  type: string;
+    49→  target: string;
+    50→}
+    51→interface WorkflowRule {
+    52→  id: string;
+    53→  name: string;
+    54→  enabled: boolean;
+    55→  priority?: number;
+    56→  conditions: RuleCondition[];
+    57→  actions: RuleAction[];
+    58→}
+    59→
+    60→const ACTION_OPTIONS = [
+    61→  { value: "skip_editor_to_qa", label: "Skip editor → QA" },
+    62→  { value: "route_to_senior_editor", label: "Route to Senior Editor" },
+    63→  { value: "route_to_junior_editor", label: "Route to Junior Editor" },
+    64→  { value: "route_to_qa", label: "Route to QA" },
+    65→  { value: "auto_approve", label: "Auto-approve" },
+    66→  { value: "escalate", label: "Escalate to Ops Manager" },
+    67→];
+    68→const ASSIGNMENT_OPTIONS = [
+    69→  { value: "round_robin", label: "Round-robin" },
+    70→  { value: "least_loaded", label: "Least-loaded" },
+    71→  { value: "specialty_match", label: "Specialty match" },
+    72→  { value: "skill_match", label: "Skill match" },
+    73→];
+    74→const FAIRNESS_OPTIONS = [
+    75→  { value: "daily", label: "Daily" },
+    76→  { value: "weekly", label: "Weekly" },
+    77→  { value: "monthly", label: "Monthly" },
+    78→];
+    79→const CONDITION_FIELDS = ["priority", "specialty", "ai_confidence", "doc_type", "provider", "time_of_day", "client"];
+    80→const CONDITION_OPS = ["=", "!=", ">", ">=", "<", "<=", "in"];
+    81→const ACTION_TYPES = [
+    82→  { value: "assign_role", label: "Assign role" },
+    83→  { value: "assign_team", label: "Assign team" },
+    84→  { value: "assign_oncall", label: "Assign on-call" },
+    85→  { value: "skip_to", label: "Skip to stage" },
+    86→  { value: "escalate", label: "Escalate" },
+    87→  { value: "tag", label: "Tag job" },
+    88→];
+    89→const ACTION_TARGETS = ["senior_editor", "junior_editor", "qa", "cardiology_team", "ortho_team", "ops_manager", "on_call", "STAT"];
+    90→
+    91→const DEFAULT_CONFIG: RoutingConfig = {
+    92→  high_confidence_threshold: 0.95,
+    93→  low_confidence_threshold: 0.80,
+    94→  high_confidence_action: "skip_editor_to_qa",
+    95→  low_confidence_action: "route_to_senior_editor",
+    96→  default_assignment: "round_robin",
+    97→  fairness_window: "weekly",
+    98→  escalation_threshold_min: 30,
+    99→  auto_assign_enabled: true,
+   100→};
+   101→
+   102→export function WorkflowRouting() {
+   103→  const cfgFetch = useFetch<RoutingConfig>("/api/medflow/routing-config");
+   104→  const rulesFetch = useFetch<{ rules: WorkflowRule[]; total: number }>("/api/medflow/workflow-rules");
+   105→  const [cfg, setCfg] = useState<RoutingConfig>(DEFAULT_CONFIG);
+   106→  const [rules, setRules] = useState<WorkflowRule[]>([]);
+   107→  const [saveCfgSaving, setSaveCfgSaving] = useState(false);
+   108→  const [newRuleOpen, setNewRuleOpen] = useState(false);
+   109→  const [newRule, setNewRule] = useState<{ name: string; priority: number; conditions: RuleCondition[]; actions: RuleAction[] }>({
+   110→    name: "",
+   111→    priority: 1,
+   112→    conditions: [{ field: "priority", op: "=", value: "STAT" }],
+   113→    actions: [{ type: "escalate", target: "ops_manager" }],
+   114→  });
+   115→  const [creatingRule, setCreatingRule] = useState(false);
+   116→  const [deletingId, setDeletingId] = useState<string | null>(null);
+   117→
+   118→  // Initialize local state from fetched data — don't show skeletons if data is present
+   119→  useEffect(() => {
+   120→    if (cfgFetch.data) setCfg(cfgFetch.data);
+   121→  }, [cfgFetch.data]);
+   122→  useEffect(() => {
+   123→    if (rulesFetch.data?.rules) setRules(rulesFetch.data.rules);
+   124→  }, [rulesFetch.data]);
+   125→
+   126→  const totalLoading = cfgFetch.loading && !cfgFetch.data;
+   127→  const totalError = cfgFetch.error ?? rulesFetch.error;
+   128→
+   129→  const sortedRules = useMemo(() => {
+   130→    return [...rules].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99));
+   131→  }, [rules]);
+   132→
+   133→  const saveConfig = async () => {
+   134→    setSaveCfgSaving(true);
+   135→    try {
+   136→      const res = await fetch("/api/medflow/routing-config", {
+   137→        method: "POST",
+   138→        headers: { "Content-Type": "application/json" },
+   139→        body: JSON.stringify(cfg),
+   140→      });
+   141→      if (!res.ok) throw new Error(`${res.status}`);
+   142→      const json = await res.json();
+   143→      if (json.config) setCfg(json.config);
+   144→      toast.success("Routing configuration saved.");
+   145→      cfgFetch.refresh();
+   146→    } catch (e) {
+   147→      toast.error(`Save failed: ${(e as Error).message}`);
+   148→    } finally {
+   149→      setSaveCfgSaving(false);
+   150→    }
+   151→  };
+   152→
+   153→  const toggleRuleEnabled = async (r: WorkflowRule, value: boolean) => {
+   154→    setRules(prev => prev.map(x => x.id === r.id ? { ...x, enabled: value } : x));
+   155→    toast.info(`${r.name} ${value ? "enabled" : "disabled"}.`);
+   156→  };
+   157→
+   158→  const deleteRule = async (r: WorkflowRule) => {
+   159→    setDeletingId(r.id);
+   160→    try {
+   161→      const res = await fetch("/api/medflow/workflow-rules", {
+   162→        method: "DELETE",
+   163→        headers: { "Content-Type": "application/json" },
+   164→        body: JSON.stringify({ id: r.id }),
+   165→      });
+   166→      if (!res.ok) throw new Error(`${res.status}`);
+   167→      const json = await res.json();
+   168→      if (json.rules) setRules(json.rules);
+   169→      toast.success(`Rule "${r.name}" deleted.`);
+   170→    } catch (e) {
+   171→      toast.error(`Delete failed: ${(e as Error).message}`);
+   172→    } finally {
+   173→      setDeletingId(null);
+   174→    }
+   175→  };
+   176→
+   177→  const createRule = async () => {
+   178→    if (!newRule.name.trim()) { toast.error("Enter a rule name."); return; }
+   179→    setCreatingRule(true);
+   180→    try {
+   181→      const res = await fetch("/api/medflow/workflow-rules", {
+   182→        method: "POST",
+   183→        headers: { "Content-Type": "application/json" },
+   184→        body: JSON.stringify({
+   185→          name: newRule.name.trim(),
+   186→          priority: newRule.priority,
+   187→          conditions: newRule.conditions,
+   188→          actions: newRule.actions,
+   189→        }),
+   190→      });
+   191→      if (!res.ok) throw new Error(`${res.status}`);
+   192→      const json = await res.json();
+   193→      if (json.rules) setRules(json.rules);
+   194→      toast.success(`Rule "${newRule.name.trim()}" created.`);
+   195→      setNewRuleOpen(false);
+   196→      setNewRule({ name: "", priority: 1, conditions: [{ field: "priority", op: "=", value: "STAT" }], actions: [{ type: "escalate", target: "ops_manager" }] });
+   197→      rulesFetch.refresh();
+   198→    } catch (e) {
+   199→      toast.error(`Create failed: ${(e as Error).message}`);
+   200→    } finally {
+   201→      setCreatingRule(false);
+   202→    }
+   203→  };
+   204→
+   205→  if (totalLoading) return (
+   206→    <div>
+   207→      <PageHeader title="Workflow & Routing" description="Visual rule builder + confidence-calibrated routing." icon={Workflow} />
+   208→      <SectionLoading rows={4} />
+   209→    </div>
+   210→  );
+   211→  if (totalError && !cfgFetch.data && !rulesFetch.data) return (
+   212→    <div>
+   213→      <PageHeader title="Workflow & Routing" description="Visual rule builder + confidence-calibrated routing." icon={Workflow} />
+   214→      <SectionError message={totalError} onRetry={() => { cfgFetch.refresh(); rulesFetch.refresh(); }} />
+   215→    </div>
+   216→  );
+   217→
+   218→  return (
+   219→    <div>
+   220→      <PageHeader
+   221→        title="Workflow & Routing"
+   222→        description="Visual rule builder + confidence-calibrated routing between AI, editors, and QA."
+   223→        icon={Workflow}
+   224→        actions={
+   225→          <Button variant="outline" size="sm" onClick={() => { cfgFetch.refresh(); rulesFetch.refresh(); }}>
+   226→            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Refresh
+   227→          </Button>
+   228→        }
+   229→      />
+   230→
+   231→      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+   232→        {/* ── LEFT — Routing configuration ───────────────────────────── */}
+   233→        <Card>
+   234→          <CardHeader className="pb-2">
+   235→            <CardTitle className="text-base flex items-center gap-2">
+   236→              <GitBranch className="h-4 w-4 text-secondary" /> Routing Configuration
+   237→            </CardTitle>
+   238→            <CardDescription className="text-xs">Confidence thresholds + actions for AI-produced drafts</CardDescription>
+   239→          </CardHeader>
+   240→          <CardContent className="space-y-5">
+   241→            {/* Visual flow diagram */}
+   242→            <div className="rounded-lg border border-border bg-muted/20 p-4">
+   243→              <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">AI Draft → Confidence Routing</p>
+   244→              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+   245→                <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 font-semibold text-primary">
+   246→                  <Bot className="h-3 w-3" /> AI Draft
+   247→                </span>
+   248→                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+   249→                <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">confidence ≥ {Math.round(cfg.high_confidence_threshold * 100)}%</span>
+   250→                <ArrowRight className="h-3 w-3 text-emerald-600" />
+   251→                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+   252→                  <ShieldCheck className="h-3 w-3" /> Skip to QA
+   253→                </span>
+   254→              </div>
+   255→              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+   256→                <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">confidence {Math.round(cfg.low_confidence_threshold * 100)}–{Math.round(cfg.high_confidence_threshold * 100)}%</span>
+   257→                <ArrowRight className="h-3 w-3 text-amber-600" />
+   258→                <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 font-semibold text-amber-700">
+   259→                  <Edit3 className="h-3 w-3" /> Junior Editor
+   260→                </span>
+   261→              </div>
+   262→              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+   263→                <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">confidence &lt; {Math.round(cfg.low_confidence_threshold * 100)}%</span>
+   264→                <ArrowRight className="h-3 w-3 text-red-600" />
+   265→                <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 font-semibold text-red-700">
+   266→                  <Stethoscope className="h-3 w-3" /> Senior Editor
+   267→                </span>
+   268→              </div>
+   269→            </div>
+   270→
+   271→            {/* Thresholds */}
+   272→            <div className="space-y-3">
+   273→              <div>
+   274→                <div className="mb-1 flex items-center justify-between">
+   275→                  <Label className="text-xs">High-confidence threshold (skip editor)</Label>
+   276→                  <span className="font-mono text-[11px] font-bold text-emerald-700">{Math.round(cfg.high_confidence_threshold * 100)}%</span>
+   277→                </div>
+   278→                <Slider
+   279→                  min={0} max={100} step={1}
+   280→                  value={[Math.round(cfg.high_confidence_threshold * 100)]}
+   281→                  onValueChange={(v) => setCfg(c => ({ ...c, high_confidence_threshold: v[0] / 100 }))}
+   282→                />
+   283→              </div>
+   284→              <div>
+   285→                <div className="mb-1 flex items-center justify-between">
+   286→                  <Label className="text-xs">Low-confidence threshold (escalate to senior)</Label>
+   287→                  <span className="font-mono text-[11px] font-bold text-red-700">{Math.round(cfg.low_confidence_threshold * 100)}%</span>
+   288→                </div>
+   289→                <Slider
+   290→                  min={0} max={100} step={1}
+   291→                  value={[Math.round(cfg.low_confidence_threshold * 100)]}
+   292→                  onValueChange={(v) => setCfg(c => ({ ...c, low_confidence_threshold: v[0] / 100 }))}
+   293→                />
+   294→              </div>
+   295→            </div>
+   296→
+   297→            {/* Action dropdowns */}
+   298→            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+   299→              <div>
+   300→                <Label className="text-xs">High-confidence action</Label>
+   301→                <Select value={cfg.high_confidence_action} onValueChange={(v) => setCfg(c => ({ ...c, high_confidence_action: v }))}>
+   302→                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+   303→                  <SelectContent>
+   304→                    {ACTION_OPTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+   305→                  </SelectContent>
+   306→                </Select>
+   307→              </div>
+   308→              <div>
+   309→                <Label className="text-xs">Low-confidence action</Label>
+   310→                <Select value={cfg.low_confidence_action} onValueChange={(v) => setCfg(c => ({ ...c, low_confidence_action: v }))}>
+   311→                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+   312→                  <SelectContent>
+   313→                    {ACTION_OPTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+   314→                  </SelectContent>
+   315→                </Select>
+   316→              </div>
+   317→              <div>
+   318→                <Label className="text-xs">Default assignment</Label>
+   319→                <Select value={cfg.default_assignment} onValueChange={(v) => setCfg(c => ({ ...c, default_assignment: v }))}>
+   320→                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+   321→                  <SelectContent>
+   322→                    {ASSIGNMENT_OPTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+   323→                  </SelectContent>
+   324→                </Select>
+   325→              </div>
+   326→              <div>
+   327→                <Label className="text-xs">Fairness window</Label>
+   328→                <Select value={cfg.fairness_window} onValueChange={(v) => setCfg(c => ({ ...c, fairness_window: v }))}>
+   329→                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+   330→                  <SelectContent>
+   331→                    {FAIRNESS_OPTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+   332→                  </SelectContent>
+   333→                </Select>
+   334→              </div>
+   335→            </div>
+   336→
+   337→            {/* Auto-assign toggle */}
+   338→            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-3">
+   339→              <div>
+   340→                <p className="text-xs font-semibold text-foreground">Auto-assign</p>
+   341→                <p className="text-[11px] text-muted-foreground">Allow the Work Allocation Agent to auto-route new jobs.</p>
+   342→              </div>
+   343→              <Switch checked={cfg.auto_assign_enabled} onCheckedChange={(v) => setCfg(c => ({ ...c, auto_assign_enabled: v }))} />
+   344→            </div>
+   345→
+   346→            <Button size="sm" className="bg-primary text-primary-foreground" onClick={saveConfig} disabled={saveCfgSaving}>
+   347→              {saveCfgSaving ? <Save className="mr-1.5 h-3.5 w-3.5 animate-pulse" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+   348→              {saveCfgSaving ? "Saving…" : "Save"}
+   349→            </Button>
+   350→          </CardContent>
+   351→        </Card>
+   352→
+   353→        {/* ── RIGHT — Workflow rules ──────────────────────────────────── */}
+   354→        <Card>
+   355→          <CardHeader className="pb-2">
+   356→            <div className="flex items-center justify-between">
+   357→              <div>
+   358→                <CardTitle className="text-base flex items-center gap-2">
+   359→                  <Zap className="h-4 w-4 text-secondary" /> Workflow Rules
+   360→                </CardTitle>
+   361→                <CardDescription className="text-xs">{rules.length} rules — top-down priority order</CardDescription>
+   362→              </div>
+   363→              <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => setNewRuleOpen(true)}>
+   364→                <Plus className="mr-1.5 h-3.5 w-3.5" /> New Rule
+   365→              </Button>
+   366→            </div>
+   367→          </CardHeader>
+   368→          <CardContent>
+   369→            {sortedRules.length === 0 ? (
+   370→              <EmptyState icon={Workflow} message="No workflow rules yet. Create your first rule." />
+   371→            ) : (
+   372→              <div className="mf-scroll max-h-[640px] space-y-3 pr-2">
+   373→                <AnimatePresence>
+   374→                  {sortedRules.map((r, i) => (
+   375→                    <motion.div
+   376→                      key={r.id}
+   377→                      layout
+   378→                      initial={{ opacity: 0, y: 6 }}
+   379→                      animate={{ opacity: 1, y: 0 }}
+   380→                      exit={{ opacity: 0, y: -6 }}
+   381→                      transition={{ duration: 0.2, delay: i * 0.03 }}
+   382→                    >
+   383→                      <div className={cn("rounded-lg border p-3 transition-colors", r.enabled ? "border-border bg-card" : "border-dashed bg-muted/30 opacity-70")}>
+   384→                        <div className="flex items-start justify-between gap-2">
+   385→                          <div className="min-w-0 flex-1">
+   386→                            <div className="flex items-center gap-2">
+   387→                              <span className="grid h-5 w-5 place-items-center rounded-md bg-secondary/15 text-[10px] font-bold text-secondary">{r.priority ?? i + 1}</span>
+   388→                              <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
+   389→                            </div>
+   390→                          </div>
+   391→                          <div className="flex items-center gap-2">
+   392→                            <Switch checked={r.enabled} onCheckedChange={(v) => toggleRuleEnabled(r, v)} aria-label={`Toggle ${r.name}`} />
+   393→                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => toast.info(`Editing "${r.name}" — visual builder coming soon.`)}>
+   394→                              <Edit3 className="h-3.5 w-3.5" />
+   395→                            </Button>
+   396→                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-700" disabled={deletingId === r.id} onClick={() => deleteRule(r)}>
+   397→                              {deletingId === r.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+   398→                            </Button>
+   399→                          </div>
+   400→                        </div>
+   401→                        {/* Conditions */}
+   402→                        <div className="mt-2 flex flex-wrap items-center gap-1">
+   403→                          <span className="text-[10px] uppercase text-muted-foreground">IF</span>
+   404→                          {r.conditions.map((c, idx) => (
+   405→                            <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 border border-amber-200">
+   406→                              {c.field} <span className="font-mono">{c.op}</span> <span className="font-mono">{String(c.value)}</span>
+   407→                            </span>
+   408→                          ))}
+   409→                          {r.conditions.length === 0 && <span className="text-[10px] text-muted-foreground italic">no conditions</span>}
+   410→                        </div>
+   411→                        {/* Actions */}
+   412→                        <div className="mt-1 flex flex-wrap items-center gap-1">
+   413→                          <span className="text-[10px] uppercase text-muted-foreground">THEN</span>
+   414→                          {r.actions.map((a, idx) => (
+   415→                            <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-medium text-secondary border border-secondary/30">
+   416→                              {a.type} <ArrowRight className="h-2.5 w-2.5" /> {a.target}
+   417→                            </span>
+   418→                          ))}
+   419→                          {r.actions.length === 0 && <span className="text-[10px] text-muted-foreground italic">no actions</span>}
+   420→                        </div>
+   421→                      </div>
+   422→                    </motion.div>
+   423→                  ))}
+   424→                </AnimatePresence>
+   425→              </div>
+   426→            )}
+   427→          </CardContent>
+   428→        </Card>
+   429→      </div>
+   430→
+   431→      {/* ── New Rule Dialog ───────────────────────────────────────────── */}
+   432→      <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
+   433→        <DialogContent className="max-w-2xl">
+   434→          <DialogHeader>
+   435→            <DialogTitle>Create workflow rule</DialogTitle>
+   436→            <DialogDescription>Define conditions and actions. The first matching rule (top-down priority) wins.</DialogDescription>
+   437→          </DialogHeader>
+   438→          <div className="space-y-4">
+   439→            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+   440→              <div className="sm:col-span-2">
+   441→                <Label className="text-xs">Rule name</Label>
+   442→                <Input value={newRule.name} onChange={e => setNewRule(r => ({ ...r, name: e.target.value }))} placeholder="e.g. Cardiology → Cardiology team" className="h-9 text-xs" />
+   443→              </div>
+   444→              <div>
+   445→                <Label className="text-xs">Priority</Label>
+   446→                <Input type="number" min={1} max={99} value={newRule.priority} onChange={e => setNewRule(r => ({ ...r, priority: Number(e.target.value) || 1 }))} className="h-9 text-xs" />
+   447→              </div>
+   448→            </div>
+   449→
+   450→            {/* Conditions builder */}
+   451→            <div>
+   452→              <div className="mb-1 flex items-center justify-between">
+   453→                <Label className="text-xs">Conditions (all must match)</Label>
+   454→                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setNewRule(r => ({ ...r, conditions: [...r.conditions, { field: "specialty", op: "=", value: "Cardiology" }] }))}>
+   455→                  <Plus className="mr-1 h-3 w-3" /> Add condition
+   456→                </Button>
+   457→              </div>
+   458→              <div className="space-y-2">
+   459→                {newRule.conditions.map((c, idx) => (
+   460→                  <div key={idx} className="flex items-center gap-2">
+   461→                    <Select value={c.field} onValueChange={(v) => setNewRule(r => ({ ...r, conditions: r.conditions.map((x, i) => i === idx ? { ...x, field: v } : x) }))}>
+   462→                      <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+   463→                      <SelectContent>
+   464→                        {CONDITION_FIELDS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+   465→                      </SelectContent>
+   466→                    </Select>
+   467→                    <Select value={c.op} onValueChange={(v) => setNewRule(r => ({ ...r, conditions: r.conditions.map((x, i) => i === idx ? { ...x, op: v } : x) }))}>
+   468→                      <SelectTrigger className="h-8 w-16 text-xs"><SelectValue /></SelectTrigger>
+   469→                      <SelectContent>
+   470→                        {CONDITION_OPS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+   471→                      </SelectContent>
+   472→                    </Select>
+   473→                    <Input
+   474→                      className="h-8 text-xs flex-1"
+   475→                      value={String(c.value)}
+   476→                      onChange={(e) => {
+   477→                        const raw = e.target.value;
+   478→                        const num = Number(raw);
+   479→                        setNewRule(r => ({ ...r, conditions: r.conditions.map((x, i) => i === idx ? { ...x, value: (!isNaN(num) && raw !== "") ? num : raw } : x) }));
+   480→                      }}
+   481→                    />
+   482→                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-700" onClick={() => setNewRule(r => ({ ...r, conditions: r.conditions.filter((_, i) => i !== idx) }))}>
+   483→                      <Trash2 className="h-3 w-3" />
+   484→                    </Button>
+   485→                  </div>
+   486→                ))}
+   487→              </div>
+   488→            </div>
+   489→
+   490→            {/* Actions builder */}
+   491→            <div>
+   492→              <div className="mb-1 flex items-center justify-between">
+   493→                <Label className="text-xs">Actions</Label>
+   494→                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setNewRule(r => ({ ...r, actions: [...r.actions, { type: "assign_role", target: "senior_editor" }] }))}>
+   495→                  <Plus className="mr-1 h-3 w-3" /> Add action
+   496→                </Button>
+   497→              </div>
+   498→              <div className="space-y-2">
+   499→                {newRule.actions.map((a, idx) => (
+   500→                  <div key={idx} className="flex items-center gap-2">
+   501→                    <Select value={a.type} onValueChange={(v) => setNewRule(r => ({ ...r, actions: r.actions.map((x, i) => i === idx ? { ...x, type: v } : x) }))}>
+   502→                      <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+   503→                      <SelectContent>
+   504→                        {ACTION_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+   505→                      </SelectContent>
+   506→                    </Select>
+   507→                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+   508→                    <Select value={a.target} onValueChange={(v) => setNewRule(r => ({ ...r, actions: r.actions.map((x, i) => i === idx ? { ...x, target: v } : x) }))}>
+   509→                      <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+   510→                      <SelectContent>
+   511→                        {ACTION_TARGETS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+   512→                      </SelectContent>
+   513→                    </Select>
+   514→                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-700" onClick={() => setNewRule(r => ({ ...r, actions: r.actions.filter((_, i) => i !== idx) }))}>
+   515→                      <Trash2 className="h-3 w-3" />
+   516→                    </Button>
+   517→                  </div>
+   518→                ))}
+   519→              </div>
+   520→            </div>
+   521→          </div>
+   522→          <DialogFooter>
+   523→            <Button variant="outline" onClick={() => setNewRuleOpen(false)}>Cancel</Button>
+   524→            <Button className="bg-primary text-primary-foreground" disabled={creatingRule} onClick={createRule}>
+   525→              {creatingRule ? <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1.5 h-3.5 w-3.5" />}
+   526→              {creatingRule ? "Creating…" : "Create rule"}
+   527→            </Button>
+   528→          </DialogFooter>
+   529→        </DialogContent>
+   530→      </Dialog>
+   531→    </div>
+   532→  );
+   533→}
+   534→

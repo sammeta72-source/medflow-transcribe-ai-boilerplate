@@ -9,8 +9,8 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  BadgeCheck, CheckCircle2, Download, FileArchive, Loader2, RefreshCw,
-  ShieldCheck, TriangleAlert, XCircle,
+  BadgeCheck, CheckCircle2, Clock, Download, FileArchive, Loader2, RefreshCw,
+  ShieldCheck, Sparkles, TriangleAlert, Wrench, XCircle,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -395,9 +395,224 @@ export function ContinuousCompliance() {
           <SignalStat label="Subscriptions" value={data.system_signals.subscriptions} />
         </CardContent>
       </Card>
+
+      {/* ── Auto-Remediation (E8) — additive enhancement ───────────────── */}
+      <AutoRemediationPanel />
     </div>
   );
 }
+
+// ── Auto-Remediation (E8) ────────────────────────────────────────────────────
+// Compliance failures are auto-fixed where safe; ambiguous items are escalated.
+// Mirrors /api/medflow/auto-remediation response shape.
+
+interface RemediationLogRow {
+  id: string;
+  timestamp: string;
+  control: string;
+  severity: string;
+  auto_action: string;
+  status: string;
+  control_id: string;
+}
+
+interface PendingRemediationRow {
+  id: string;
+  control: string;
+  severity: string;
+  proposed_action: string;
+  requires_human: boolean;
+}
+
+interface AutoRemediationResponse {
+  auto_remediation_enabled: boolean;
+  total_auto_fixed_30d: number;
+  pending_remediation: number;
+  remediation_log: RemediationLogRow[];
+  pending: PendingRemediationRow[];
+}
+
+const REMEDIATION_STATUS_STYLES: Record<string, string> = {
+  completed: "bg-emerald-100 text-emerald-700 border-emerald-300",
+  in_progress: "bg-amber-100 text-amber-800 border-amber-300",
+  pending: "bg-slate-100 text-slate-700 border-slate-300",
+  failed: "bg-red-100 text-red-700 border-red-300",
+};
+
+const REMEDIATION_SEVERITY_STYLES: Record<string, string> = {
+  low: "bg-emerald-100 text-emerald-700 border-emerald-300",
+  medium: "bg-amber-100 text-amber-800 border-amber-300",
+  high: "bg-orange-100 text-orange-800 border-orange-300",
+  critical: "bg-red-100 text-red-700 border-red-300",
+};
+
+function AutoRemediationPanel() {
+  const { data, loading, error, refresh } = useFetch<AutoRemediationResponse>("/api/medflow/auto-remediation");
+
+  return (
+    <Card className="mt-4">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Wrench className="h-4 w-4 text-secondary" /> Auto-Remediation
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Compliance failures fixed automatically — safe actions executed, ambiguous items escalated to humans.
+          </CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+            data?.auto_remediation_enabled
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+              : "border-border bg-muted text-muted-foreground",
+          )}>
+            <span className={cn("h-1.5 w-1.5 rounded-full", data?.auto_remediation_enabled ? "bg-emerald-500 mf-pulse" : "bg-muted-foreground")} />
+            {data?.auto_remediation_enabled ? "ENABLED" : "DISABLED"}
+          </span>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <SectionLoading rows={3} />
+        ) : error || !data ? (
+          <SectionError message={error ?? "Unknown"} onRetry={refresh} />
+        ) : (
+          <>
+            {/* KPIs */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <AutoRemStat label="Total Auto-Fixed (30d)" value={data.total_auto_fixed_30d} tone="emerald" icon={CheckCircle2} />
+              <AutoRemStat label="Pending Remediation" value={data.pending_remediation} tone="amber" icon={Clock} />
+              <AutoRemStat label="Remediation Log Entries" value={data.remediation_log.length} tone="secondary" icon={Wrench} />
+            </div>
+
+            {/* Remediation Log Table */}
+            <div className="mt-4">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Remediation Log
+              </p>
+              <div className="mf-scroll max-h-[400px] overflow-y-auto rounded-lg border border-border">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card">
+                    <TableRow>
+                      <TableHead className="text-[11px]">Timestamp</TableHead>
+                      <TableHead className="text-[11px]">Control</TableHead>
+                      <TableHead className="text-[11px]">Severity</TableHead>
+                      <TableHead className="text-[11px]">Auto-Action</TableHead>
+                      <TableHead className="text-[11px]">Status</TableHead>
+                      <TableHead className="text-[11px]">Control ID</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.remediation_log.map((row, i) => (
+                      <motion.tr
+                        key={row.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.15, delay: i * 0.03 }}
+                        className="hover:bg-muted/40"
+                      >
+                        <TableCell className="text-[11px] text-muted-foreground">{formatRelative(row.timestamp)}</TableCell>
+                        <TableCell>
+                          <p className="text-[12px] text-foreground">{row.control}</p>
+                          <p className="font-mono text-[10px] text-muted-foreground">{row.control_id}</p>
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn(
+                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize",
+                            REMEDIATION_SEVERITY_STYLES[row.severity] ?? "bg-muted text-muted-foreground border-border",
+                          )}>
+                            {row.severity}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-[11px] text-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Sparkles className="h-3 w-3 text-secondary" /> {row.auto_action}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize",
+                            REMEDIATION_STATUS_STYLES[row.status] ?? "bg-muted text-muted-foreground border-border",
+                          )}>
+                            {row.status === "completed" ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Clock className="h-2.5 w-2.5" />}
+                            {row.status.replace(/_/g, " ")}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-mono text-[10px] text-muted-foreground">{row.control_id}</TableCell>
+                      </motion.tr>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Pending (Requires Human) */}
+            {data.pending.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <TriangleAlert className="h-3 w-3 text-amber-600" /> Pending (Requires Human)
+                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-2">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[11px]">Control</TableHead>
+                        <TableHead className="text-[11px]">Severity</TableHead>
+                        <TableHead className="text-[11px]">Proposed Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.pending.map(row => (
+                        <TableRow key={row.id} className="hover:bg-amber-50/60">
+                          <TableCell className="text-[12px] text-foreground">{row.control}</TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize",
+                              REMEDIATION_SEVERITY_STYLES[row.severity] ?? "bg-muted text-muted-foreground border-border",
+                            )}>
+                              {row.severity}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-[11px] text-foreground">{row.proposed_action}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AutoRemStat({ label, value, tone, icon: Icon }: { label: string; value: number; tone: "emerald" | "amber" | "secondary"; icon: typeof CheckCircle2 }) {
+  const toneClass =
+    tone === "emerald" ? "text-emerald-700 bg-emerald-50" :
+    tone === "amber" ? "text-amber-700 bg-amber-50" :
+    "text-secondary bg-secondary/10";
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <div className="flex items-center gap-2">
+        <span className={cn("grid h-7 w-7 place-items-center rounded-full", toneClass)}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      </div>
+      <p className="mt-2 text-xl font-extrabold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+// NOTE: AutoRemediationPanel intentionally consumes the same hook module paths
+// (`@/hooks/medflow/useFetch`, `@/lib/medflow/format`, `framer-motion`, `sonner`)
+// already imported at the top of this file.
 
 function TierBreakdown({ label, value }: { label: string; value: string }) {
   const [pass, total] = value.split("/").map(n => Number(n));

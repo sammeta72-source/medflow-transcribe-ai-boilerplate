@@ -70,7 +70,8 @@ export function Integrations() {
   const [tab, setTab] = useState("ehr");
   // Initialize from server-embedded data (from AiDataBootstrap) — shows data
   // immediately, no loading delay, even if runtime fetches fail.
-  const embeddedConnectors = getEmbeddedAiData().dbConnectors ?? STATIC_DB_CONNECTORS;
+  const embConn = getEmbeddedAiData().dbConnectors;
+  const embeddedConnectors = (embConn && embConn.length > 0) ? embConn : STATIC_DB_CONNECTORS;
   const [connectors, setConnectors] = useState<DbConnector[] | null>(embeddedConnectors);
   const [connLoading, setConnLoading] = useState(false);
   const [connError, setConnError] = useState<string | null>(null);

@@ -73,7 +73,8 @@ function summarizeRun(agentId: string, run: AgentRun): string {
 export function AIAgents() {
   // Initialize from server-embedded data (from AiDataBootstrap) — shows data
   // immediately, no loading delay, even if runtime fetches fail.
-  const embeddedAgents = getEmbeddedAiData().agents ?? STATIC_AGENTS;
+  const embAgents = getEmbeddedAiData().agents;
+  const embeddedAgents = (embAgents && embAgents.length > 0) ? embAgents : STATIC_AGENTS;
   const [agents, setAgents] = useState<AiAgent[] | null>(embeddedAgents);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

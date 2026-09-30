@@ -138,9 +138,9 @@ export async function fetchAgents(): Promise<AiAgent[]> {
     return agents.map(a => ({ ...a, recent_runs: [...(local[a.id] ?? []), ...(a.recent_runs ?? [])].slice(0, 5) }));
   } catch {
     // Fallback: server-embedded data → then STATIC data (hardcoded in bundle)
-    const embedded = getEmbeddedAiData().agents ?? STATIC_AGENTS;
+    const embedded = getEmbeddedAiData().agents; const fallback = (embedded && embedded.length > 0) ? embedded : STATIC_AGENTS;
     const local = loadRuns();
-    return embedded.map(a => ({ ...a, recent_runs: [...(local[a.id] ?? []), ...(a.recent_runs ?? [])].slice(0, 5) }));
+    return fallback.map(a => ({ ...a, recent_runs: [...(local[a.id] ?? []), ...(a.recent_runs ?? [])].slice(0, 5) }));
   }
 }
 
@@ -187,7 +187,7 @@ export async function fetchDbConnectors(): Promise<DbConnector[]> {
     const data = await res.json();
     return data.connectors ?? [];
   } catch {
-    return getEmbeddedAiData().dbConnectors ?? STATIC_DB_CONNECTORS;
+    const emb = getEmbeddedAiData().dbConnectors; return (emb && emb.length > 0) ? emb : STATIC_DB_CONNECTORS;
   }
 }
 
@@ -290,7 +290,7 @@ export async function fetchCopilotSummary(
     return res.json();
   } catch {
     // Fallback: server-embedded → then STATIC data (hardcoded in bundle)
-    return getEmbeddedAiData().copilotSummary ?? STATIC_COPILOT_SUMMARY;
+    const emb = getEmbeddedAiData().copilotSummary; return emb ?? STATIC_COPILOT_SUMMARY;
   }
 }
 
@@ -383,7 +383,7 @@ export async function fetchFhirSubscriptions(): Promise<FhirSubscription[]> {
     const data = await res.json();
     return data.subscriptions ?? [];
   } catch {
-    return getEmbeddedAiData().fhirSubscriptions ?? STATIC_FHIR_SUBSCRIPTIONS;
+    const emb = getEmbeddedAiData().fhirSubscriptions; return (emb && emb.length > 0) ? emb : STATIC_FHIR_SUBSCRIPTIONS;
   }
 }
 
@@ -479,7 +479,7 @@ export async function fetchDirectLog(): Promise<DirectMessage[]> {
     const data = await res.json();
     return data.messages ?? [];
   } catch {
-    return getEmbeddedAiData().directLog ?? STATIC_DIRECT_LOG;
+    const emb = getEmbeddedAiData().directLog; return (emb && emb.length > 0) ? emb : STATIC_DIRECT_LOG;
   }
 }
 

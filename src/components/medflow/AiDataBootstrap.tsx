@@ -27,27 +27,28 @@ async function fetchJson(url: string, fallback: unknown, timeoutMs = 4000): Prom
 export async function AiDataBootstrap() {
   // Fetch all read-only FastAPI data server-side (parallel)
   const [agents, dbConnectors, fhirSubscriptions, directLog, copilotSummary] = await Promise.all([
-    fetchJson(`${FASTAPI_BASE}/agents`, { agents: [] }),
-    fetchJson(`${FASTAPI_BASE}/db/connectors`, { connectors: [] }),
-    fetchJson(`${FASTAPI_BASE}/fhir/subscription`, { subscriptions: [] }),
-    fetchJson(`${FASTAPI_BASE}/direct/log`, { messages: [] }),
-    fetchJson(`${FASTAPI_BASE}/copilot/summarize`, {
-      daily_backlog_risk: { total_in_pipeline: 5, at_risk_count: 2, breach_count: 1, stat_jobs: 2, escalated_count: 1 },
-      sla_breach_predictions: [],
-      high_rework_items: [],
-      staffing_recommendation: { current_load: 5, recommended_shift_adjustment: "Add 1 editor for STAT queue", surplus_deficit: -2 },
-      client_ops_report_draft: "## Client Operations Report\n\nDaily backlog: 5 in pipeline, 2 at risk, 1 breach. STAT workload: 2 jobs. Escalated: 1.\n\nRecommended action: expedite JOB-2024-004 + reassign JOB-2024-012 to senior editor.",
-      generated_at: new Date().toISOString(),
-      data_minimized: true,
-    }, 6000),
+    fetchJson(`${FASTAPI_BASE}/agents`, { agents: null }),
+    fetchJson(`${FASTAPI_BASE}/db/connectors`, { connectors: null }),
+    fetchJson(`${FASTAPI_BASE}/fhir/subscription`, { subscriptions: null }),
+    fetchJson(`${FASTAPI_BASE}/direct/log`, { messages: null }),
+    fetchJson(`${FASTAPI_BASE}/copilot/summarize`, null, 6000),
   ]);
 
+  // Extract arrays — use null (NOT empty []) when the fetch failed, so the
+  // client-side `??` operator falls through to the STATIC fallback data.
+  const agentsArr = (agents as { agents?: unknown[] })?.agents;
+  const connArr = (dbConnectors as { connectors?: unknown[] })?.connectors;
+  const subArr = (fhirSubscriptions as { subscriptions?: unknown[] })?.subscriptions;
+  const logArr = (directLog as { messages?: unknown[] })?.messages;
+
   const embedded = {
-    agents: (agents as { agents?: unknown[] })?.agents ?? [],
-    dbConnectors: (dbConnectors as { connectors?: unknown[] })?.connectors ?? [],
-    fhirSubscriptions: (fhirSubscriptions as { subscriptions?: unknown[] })?.subscriptions ?? [],
-    directLog: (directLog as { messages?: unknown[] })?.messages ?? [],
-    copilotSummary,
+    // Only embed if the array has items — otherwise leave undefined so the
+    // client falls back to STATIC_* data hardcoded in the JS bundle.
+    agents: Array.isArray(agentsArr) && agentsArr.length > 0 ? agentsArr : undefined,
+    dbConnectors: Array.isArray(connArr) && connArr.length > 0 ? connArr : undefined,
+    fhirSubscriptions: Array.isArray(subArr) && subArr.length > 0 ? subArr : undefined,
+    directLog: Array.isArray(logArr) && logArr.length > 0 ? logArr : undefined,
+    copilotSummary: copilotSummary && typeof copilotSummary === "object" && "daily_backlog_risk" in (copilotSummary as Record<string, unknown>) ? copilotSummary : undefined,
     embeddedAt: new Date().toISOString(),
   };
 

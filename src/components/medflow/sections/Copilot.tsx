@@ -22,7 +22,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { fetchCopilotSummary } from "@/lib/medflow/api";
+import { fetchCopilotSummary, getEmbeddedAiData } from "@/lib/medflow/api";
 import type { CopilotSummary } from "@/lib/medflow/api";
 import { formatRelative } from "@/lib/medflow/format";
 import { cn } from "@/lib/utils";
@@ -44,14 +44,19 @@ const ACTION_BADGE: Record<string, string> = {
 };
 
 export function Copilot() {
-  const [summary, setSummary] = useState<CopilotSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize from server-embedded data (from AiDataBootstrap) — so the
+  // section shows data IMMEDIATELY, no loading delay, even if runtime fetches
+  // fail in published/new-tab mode.
+  const embedded = getEmbeddedAiData().copilotSummary;
+  const [summary, setSummary] = useState<CopilotSummary | null>(embedded ?? null);
+  const [loading, setLoading] = useState(!embedded);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<string>(MANAGER_ROLES[0]);
   const [escalating, setEscalating] = useState<string | null>(null);
 
   const load = useCallback(async (managerRole: string) => {
-    setLoading(true);
+    // Only show loading if we don't already have embedded data
+    if (!getEmbeddedAiData().copilotSummary) setLoading(true);
     setError(null);
     try {
       const s = await fetchCopilotSummary(managerRole);

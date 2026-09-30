@@ -29,6 +29,7 @@ import { useFetch } from "@/hooks/medflow/useFetch";
 import {
   createFhirSubscription, deleteFhirSubscription, fetchDbConnectors,
   fetchDirectLog, fetchFhir, fetchFhirSubscriptions, fetchHl7,
+  getEmbeddedAiData,
   fireFhirSubscription, sendDirectMessage, switchDbConnector, testDbConnector,
 } from "@/lib/medflow/api";
 import type { DirectMessage, FhirSubscription } from "@/lib/medflow/api";
@@ -66,8 +67,11 @@ const EHR_META: Record<string, { color: string; icon: string }> = {
 export function Integrations() {
   const integFetch = useFetch<{ integrations: Integration[]; deliveryDestinations: DeliveryDestination[] }>("/api/medflow/integrations");
   const [tab, setTab] = useState("ehr");
-  const [connectors, setConnectors] = useState<DbConnector[] | null>(null);
-  const [connLoading, setConnLoading] = useState(true);
+  // Initialize from server-embedded data (from AiDataBootstrap) — shows data
+  // immediately, no loading delay, even if runtime fetches fail.
+  const embeddedConnectors = getEmbeddedAiData().dbConnectors ?? null;
+  const [connectors, setConnectors] = useState<DbConnector[] | null>(embeddedConnectors);
+  const [connLoading, setConnLoading] = useState(!embeddedConnectors);
   const [connError, setConnError] = useState<string | null>(null);
   const [activeConnector, setActiveConnector] = useState<string>("sqlite");
   const [testing, setTesting] = useState<string | null>(null);
@@ -81,7 +85,7 @@ export function Integrations() {
   const [hl7Payload, setHl7Payload] = useState("");
 
   async function loadConnectors() {
-    setConnLoading(true);
+    if (!getEmbeddedAiData().dbConnectors) setConnLoading(true);
     setConnError(null);
     try {
       const list = await fetchDbConnectors();

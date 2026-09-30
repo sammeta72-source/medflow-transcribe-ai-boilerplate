@@ -18,7 +18,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { fetchAgents, runAgent } from "@/lib/medflow/api";
+import { fetchAgents, runAgent, getEmbeddedAiData } from "@/lib/medflow/api";
 import type { AgentRun, AiAgent } from "@/lib/medflow/types";
 import { formatRelative, usd } from "@/lib/medflow/format";
 import { cn } from "@/lib/utils";
@@ -70,20 +70,24 @@ function summarizeRun(agentId: string, run: AgentRun): string {
 }
 
 export function AIAgents() {
-  const [agents, setAgents] = useState<AiAgent[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize from server-embedded data (from AiDataBootstrap) — shows data
+  // immediately, no loading delay, even if runtime fetches fail.
+  const embeddedAgents = getEmbeddedAiData().agents ?? null;
+  const [agents, setAgents] = useState<AiAgent[] | null>(embeddedAgents);
+  const [loading, setLoading] = useState(!embeddedAgents);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [allRuns, setAllRuns] = useState<AgentRun[]>([]);
+  const [allRuns, setAllRuns] = useState<AgentRun[]>(
+    embeddedAgents ? embeddedAgents.flatMap(a => a.recent_runs ?? []).slice(0, 20) : [],
+  );
 
   async function load() {
-    setLoading(true);
+    if (!getEmbeddedAiData().agents) setLoading(true);
     setError(null);
     try {
       const list = await fetchAgents();
       setAgents(list);
-      // Pull recent runs across all agents
       const runs: AgentRun[] = list.flatMap(a => a.recent_runs ?? []).slice(0, 20);
       setAllRuns(runs);
     } catch (e) {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { AiDataBootstrap } from "@/components/medflow/AiDataBootstrap";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
@@ -51,6 +52,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        {/* Server-side bootstrap: fetches FastAPI data + embeds as window.__MEDFLOW_AI_DATA__
+            so client sections have data even if runtime fetches fail in published mode */}
+        <AiDataBootstrap />
         {children}
         <Toaster />
         <SonnerToaster position="top-right" richColors closeButton />

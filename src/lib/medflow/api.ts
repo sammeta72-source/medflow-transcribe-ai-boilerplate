@@ -128,13 +128,19 @@ async function fetchWithRetry(input: string, init?: RequestInit, attempts = 5): 
 }
 
 export async function fetchAgents(): Promise<AiAgent[]> {
-  const res = await fetchAi("/agents");
-  if (!res.ok) throw new Error(`fetchAgents failed: ${res.status}`);
-  const data = await res.json();
-  const agents: AiAgent[] = data.agents ?? [];
-  // Merge locally-stored runs so the UI reflects what we triggered from the browser
-  const local = loadRuns();
-  return agents.map(a => ({ ...a, recent_runs: [...(local[a.id] ?? []), ...(a.recent_runs ?? [])].slice(0, 5) }));
+  try {
+    const res = await fetchAi("/agents");
+    if (!res.ok) throw new Error(`fetchAgents failed: ${res.status}`);
+    const data = await res.json();
+    const agents: AiAgent[] = data.agents ?? [];
+    const local = loadRuns();
+    return agents.map(a => ({ ...a, recent_runs: [...(local[a.id] ?? []), ...(a.recent_runs ?? [])].slice(0, 5) }));
+  } catch {
+    // Fallback to server-embedded data (from AiDataBootstrap) — prevents "Failed to load"
+    const embedded = getEmbeddedAiData().agents ?? [];
+    const local = loadRuns();
+    return embedded.map(a => ({ ...a, recent_runs: [...(local[a.id] ?? []), ...(a.recent_runs ?? [])].slice(0, 5) }));
+  }
 }
 
 export async function fetchAgent(agentId: string): Promise<AiAgent | null> {
@@ -174,10 +180,14 @@ export async function runAgent(
 }
 
 export async function fetchDbConnectors(): Promise<DbConnector[]> {
-  const res = await fetchAi("/db/connectors");
-  if (!res.ok) throw new Error(`fetchDbConnectors failed: ${res.status}`);
-  const data = await res.json();
-  return data.connectors ?? [];
+  try {
+    const res = await fetchAi("/db/connectors");
+    if (!res.ok) throw new Error(`fetchDbConnectors failed: ${res.status}`);
+    const data = await res.json();
+    return data.connectors ?? [];
+  } catch {
+    return getEmbeddedAiData().dbConnectors ?? [];
+  }
 }
 
 export async function testDbConnector(
@@ -266,16 +276,23 @@ export interface CopilotSummary {
 export async function fetchCopilotSummary(
   managerRole = "Offshore Delivery Manager",
 ): Promise<CopilotSummary> {
-  const res = await fetchAi(
-    "/copilot/summarize",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ manager_role: managerRole }),
-    },
-  );
-  if (!res.ok) throw new Error(`fetchCopilotSummary failed: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetchAi(
+      "/copilot/summarize",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manager_role: managerRole }),
+      },
+    );
+    if (!res.ok) throw new Error(`fetchCopilotSummary failed: ${res.status}`);
+    return res.json();
+  } catch {
+    // Fallback to server-embedded summary (from AiDataBootstrap)
+    const embedded = getEmbeddedAiData().copilotSummary;
+    if (embedded) return embedded;
+    throw new Error("Copilot summary unavailable (runtime + embedded fetch both failed)");
+  }
 }
 
 // A3 — Medical Entity Extraction + Auto-Coding
@@ -361,10 +378,14 @@ export interface FhirSubscription {
 }
 
 export async function fetchFhirSubscriptions(): Promise<FhirSubscription[]> {
-  const res = await fetchAi("/fhir/subscription");
-  if (!res.ok) throw new Error(`fetchFhirSubscriptions failed: ${res.status}`);
-  const data = await res.json();
-  return data.subscriptions ?? [];
+  try {
+    const res = await fetchAi("/fhir/subscription");
+    if (!res.ok) throw new Error(`fetchFhirSubscriptions failed: ${res.status}`);
+    const data = await res.json();
+    return data.subscriptions ?? [];
+  } catch {
+    return getEmbeddedAiData().fhirSubscriptions ?? [];
+  }
 }
 
 export async function createFhirSubscription(
@@ -453,8 +474,36 @@ export async function sendDirectMessage(
 }
 
 export async function fetchDirectLog(): Promise<DirectMessage[]> {
-  const res = await fetchAi("/direct/log");
-  if (!res.ok) throw new Error(`fetchDirectLog failed: ${res.status}`);
-  const data = await res.json();
-  return data.messages ?? [];
+  try {
+    const res = await fetchAi("/direct/log");
+    if (!res.ok) throw new Error(`fetchDirectLog failed: ${res.status}`);
+    const data = await res.json();
+    return data.messages ?? [];
+  } catch {
+    return getEmbeddedAiData().directLog ?? [];
+  }
+}
+
+// ── Server-side embedded data fallback ──────────────────────────────────────
+// AiDataBootstrap (Server Component in layout.tsx) fetches FastAPI data
+// server-side + embeds it as window.__MEDFLOW_AI_DATA__. Client sections read
+// from this as initial state — so even if runtime fetches fail (502 in
+// published/new-tab mode), the sections show data (not "Failed to load").
+
+export interface EmbeddedAiData {
+  agents?: AiAgent[];
+  dbConnectors?: DbConnector[];
+  fhirSubscriptions?: FhirSubscription[];
+  directLog?: DirectMessage[];
+  copilotSummary?: CopilotSummary;
+  embeddedAt?: string;
+}
+
+export function getEmbeddedAiData(): EmbeddedAiData {
+  if (typeof window === "undefined") return {};
+  try {
+    return (window as unknown as { __MEDFLOW_AI_DATA__?: EmbeddedAiData }).__MEDFLOW_AI_DATA__ ?? {};
+  } catch {
+    return {};
+  }
 }

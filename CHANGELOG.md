@@ -1,0 +1,56 @@
+# Changelog
+
+All notable changes to MedFlow Transcribe AI are documented here.
+
+## [1.0.0] — 2026
+
+### Added — Core Platform
+- Next.js 16 + TypeScript + Tailwind 4 + shadcn/ui frontend (29 sidebar sections)
+- Python FastAPI backend (port 8000): 10 AI agents, 5 multi-DB connectors, FHIR R4, HL7 v2.5
+- Prisma + SQLite database (24+ models, seeded with 15 jobs, 14 users, 5 providers)
+- Landing page (hero, 10-step pipeline, pricing, roadmap)
+- App shell (deep-teal sidebar, styled scroll buttons, sticky footer)
+- Jobs Kanban board (drag-and-drop, Image-2 design cards, 7 columns)
+- Job Detail Drawer (8 tabs: Overview, Transcript, Structured Doc, QA Findings, Timeline, Delivery + Extract Entities + Detect Hallucinations)
+- RBAC (12 healthcare roles, 40+ permissions, role switcher, Roles panel)
+- Voice Chatbot (LLM + ASR + TTS + autonomous agent-run via z-ai-web-dev-sdk)
+- Upload Dictation form (react-hook-form + zod, audio file dropzone, pipeline preview)
+- Continuous Compliance (16 controls, 1-click audit pack, auto-remediation)
+- Stripe Billing (subscription, usage metering, invoices, payment methods, dunning)
+- Patient Portal (documents, consent, messages, data-subject rights, FHIR export)
+- Client Portal (white-label branding, client users, stats, browser-chrome preview)
+- Mobile App (iOS/Android config, phone mockup preview)
+- HIPAA SRA Tool (12-question questionnaire, risk score, remediation plan)
+- Workforce Management (leaderboard, weekly shift grid, skills matrix, burnout alert)
+- Workflow Builder + Routing Config (visual rule builder, confidence thresholds, self-optimizing routing)
+- SMART on FHIR App Gallery (8 apps, launch buttons, register dialog)
+- Live Dictation (real-time ASR via MediaRecorder + z-ai-web-dev-sdk, word-by-word confidence coloring)
+- AI Ops Copilot (manager-facing predictive dashboard, SLA breach predictions, client report draft)
+- Medical Entity Extraction (SNOMED CT, ICD-10, CPT, RxNorm auto-suggest)
+- Hallucination Detection (medication_conflict, laterality_conflict, negation_conflict flags)
+- FHIR Subscriptions (rest-hook/websocket/email, create/fire/cancel)
+- DirectTrust Secure Messaging (S/MIME, trust-anchor validation)
+- Zero Trust panel (posture score, 3 principles, micro-segmentation, device trust)
+- SIEM panel (Splunk/Sentinel, dashboards, detection rules, alert feed)
+- Auto-Pilot Mode (master switch, 6-stage autonomous pipeline, exception queue)
+- Autonomous SOC (threat feed, auto-response playbooks, 142ms mean response)
+- AI Model Health (drift detection, auto-retraining pipeline, retraining history)
+- Self-Remediation (auto-fix compliance controls, remediation log, pending items)
+- AI Explainability (decision reasoning, contributing factors, alternatives)
+- Self-Optimizing Routing (learns from outcomes, editor performance, auto-adjustments)
+- Voice-Activated Operations ("Hey MedFlow" floating widget, Web Speech API + TTS)
+- 3-tier static fallback (live fetch → server-embedded → hardcoded in JS bundle)
+- Watchdog daemon (auto-restart services, double-fork launcher)
+- 34-page compliance specification PDF (HIPAA, GDPR, EU MDR, ISO 13485/27001, HITRUST, SOC 2)
+- 13-page monetization strategy PDF + HTML (7 revenue streams, 3 tiers, 11-region pricing)
+
+### Documentation
+- README.md (installation, quickstart, project structure, FAQ)
+- LICENSE.md (4 tiers: Starter $299, Professional $599, Enterprise $1,499, Reseller $4,999)
+- .env.example (all environment variables)
+- docker-compose.yml (PostgreSQL, Redis, MinIO, FastAPI)
+- docs/ARCHITECTURE.md (system overview, agent orchestration, 3-tier resilience, RBAC)
+- docs/DEPLOYMENT.md (Vercel, Docker, AWS ECS, on-prem, production checklist)
+- docs/API_REFERENCE.md (all Next.js + FastAPI endpoints with examples)
+- docs/CUSTOMIZATION.md (branding, adding sections, adding agents, connecting AI/Stripe)
+- CHANGELOG.md (this file)

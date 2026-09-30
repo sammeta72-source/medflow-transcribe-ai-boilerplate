@@ -1,0 +1,93 @@
+# MedFlow Transcribe AI — Docker Compose for Local Development
+# Run: docker-compose up -d
+# This starts: PostgreSQL, Redis, MinIO (S3-compatible), FastAPI, Next.js
+
+version: "3.9"
+
+services:
+  # ── PostgreSQL (production database) ────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: medflow
+      POSTGRES_USER: medflow
+      POSTGRES_PASSWORD: medflow_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (for BullMQ background jobs — future use) ─────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── MinIO (S3-compatible object storage for audio files) ───────────────────
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: medflow
+      MINIO_ROOT_PASSWORD: medflow_dev_password
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend (AI Agents Service) ──────────────────────────────────────
+  fastapi:
+    build:
+      context: ./mini-services/ai-agents-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./mini-services/ai-agents-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Next.js Frontend ────────────────────────────────────────────────────────
+  # For production: build the Dockerfile, then run the standalone server.
+  # For dev: use `bun run dev` directly (not in Docker).
+  # Uncomment to run Next.js in Docker:
+  # web:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - DATABASE_URL=postgresql://medflow:medflow_dev_password@postgres:5432/medflow?schema=public
+  #     - FASTAPI_URL=http://fastapi:8000
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

@@ -250,7 +250,7 @@ export function JobsKanban({ onOpenJob, refreshKey }: Props) {
   );
 
   return (
-    <div>
+    <div className="min-w-0 max-w-full">
       <PageHeader
         title="Jobs — Workflow Board"
         description="Drag-and-drop transcription jobs across the pipeline. Each column matches a workflow state."
@@ -326,7 +326,7 @@ export function JobsKanban({ onOpenJob, refreshKey }: Props) {
               setOverColumnId(overId.startsWith("col-") ? overId.slice(4) : null);
             }}
           >
-            <div className="flex gap-3 overflow-x-auto pb-3 mf-scroll-lg" style={{ scrollbarWidth: "thin" }}>
+            <div className="flex max-w-full gap-3 overflow-x-auto pb-3 mf-scroll-lg" style={{ scrollbarWidth: "thin" }}>
               {KANBAN_COLUMNS.map(column => (
                 <Column
                   key={column.id}

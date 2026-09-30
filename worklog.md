@@ -460,3 +460,32 @@ Stage Summary:
 - The persistent 502 issue is RESOLVED. The root cause was the dev server dying between bash calls; the double-fork launcher + watchdog daemon fix this permanently.
 - If either service ever dies, the watchdog brings it back within 15 seconds.
 - To manually restart if ever needed: `python3 /tmp/launch_dev.py` (dev) + `cd /home/z/my-project/mini-services/ai-agents-service && setsid python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload &` (FastAPI). The watchdog handles this automatically.
+
+---
+Task ID: 13 (sidebar disappearing + new-tab 502)
+Agent: main (Z.ai Code)
+Task: Fix (1) FastAPI-backed sections failing in new tab/publish mode, (2) left sidebar disappearing when Jobs Kanban is selected.
+
+Issue #1 Root Cause + Fix:
+- Root cause: When the user clicks "publish/update" + opens a new tab, the browser loads the app fresh via the gateway (port 81). The first hit on each Next.js API route (e.g. /api/ai/agents) triggers on-demand compilation by the dev server (7+ seconds). The previous client-side retry (3 attempts × 500ms-i backoff = ~1.5s total) was too short to cover this first-compile window — the fetch failed before the route finished compiling.
+- Fix: rewrote fetchWithRetry() in src/lib/medflow/api.ts — increased to 5 attempts with EXPONENTIAL backoff (1s, 2s, 4s, 8s = ~15s total) + 30s per-attempt AbortController timeout. This covers the first-compile window + service-restart windows. Retries on 5xx + network errors + aborts.
+- Verified via the gateway (port 81, what the new tab uses): AI Agents (10 cards), AI Ops Copilot (KPIs + predictions), Integrations > DB Connectors (5 cards) — all load without "Failed to load".
+
+Issue #2 Root Cause + Fix:
+- Root cause: Classic flexbox bug. The JobsKanban board renders 7 columns × 320px = 2240px wide. The main content flex child (<div className="flex min-h-screen flex-1 flex-col">) had no min-w-0, so it grew to fit the kanban board's intrinsic width (2240px), pushing the lg:sticky sidebar off the left edge of the screen.
+- Fix: 4 changes to contain the wide content:
+  1. AppShell main content div: added `min-w-0 overflow-x-hidden` — lets the flex child shrink below its content's intrinsic width + clips horizontal overflow.
+  2. AppShell <main>: added `min-w-0` — same reason (flex child containment).
+  3. JobsKanban root div: added `min-w-0 max-w-full` — constrains the board to its parent's width.
+  4. JobsKanban horizontal scroll container: added `max-w-full` — ensures the board scrolls WITHIN its container instead of expanding it.
+- Verified via agent-browser: sidebar stays visible when Jobs Kanban is selected.
+
+Watchdog persistence:
+- The watchdog daemon (PID 25277, PPID 1) is still running + monitoring both services every 15s. If the publish/update button restarts the dev server, the watchdog brings it back within 15s. The increased client-side retry (15s window) covers this restart gap.
+
+Stage Summary:
+- Both issues resolved + verified via the gateway (port 81, the new-tab origin):
+  • Sidebar stays visible on Jobs Kanban ✓
+  • AI Agents + AI Ops Copilot + Integrations all load in new-tab/publish mode ✓
+- Lint: 0 errors, 5 harmless pre-existing warnings.
+- Services persist (Dev 200, FastAPI 200) + watchdog running.

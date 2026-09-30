@@ -40,25 +40,34 @@ export function getLocalAgentRuns(agentId: string): AgentRun[] {
   return loadRuns()[agentId] ?? [];
 }
 
-// ── FastAPI calls (with client-side retry on 5xx) ───────────────────────────
+// ── FastAPI calls (with client-side retry on 5xx + network errors) ───────────
 // The Next.js proxy at /api/ai/<path> already retries upstream failures, but we
-// add a second client-side retry layer so a cold-start or transient network blip
-// never surfaces as a hard "Failed to load" in the UI.
+// add a second client-side retry layer so a cold-start, first-compile latency
+// (Next.js dev server takes 7+ seconds to compile a route on first hit), or a
+// transient network blip never surfaces as a hard "Failed to load" in the UI.
+// 5 attempts with exponential backoff (1s, 2s, 4s, 8s) = up to 15s total — covers
+// the first-compile window + service restarts.
 
-async function fetchWithRetry(input: string, init?: RequestInit, attempts = 3): Promise<Response> {
+async function fetchWithRetry(input: string, init?: RequestInit, attempts = 5): Promise<Response> {
   let lastErr: Error | null = null;
   for (let i = 1; i <= attempts; i++) {
     try {
-      const res = await fetch(input, { ...init, cache: "no-store" });
-      // Retry only on 5xx (server errors) — 4xx are real errors the caller should see.
-      if (res.status >= 500 && i < attempts) {
-        await new Promise(r => setTimeout(r, 500 * i));
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000); // 30s per attempt
+      const res = await fetch(input, { ...init, cache: "no-store", signal: controller.signal });
+      clearTimeout(timeout);
+      // Retry on 5xx (server errors) OR 502/504 from the proxy — these are transient.
+      if ((res.status >= 500 || res.status === 0) && i < attempts) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i - 1))); // 1s, 2s, 4s, 8s
         continue;
       }
       return res;
     } catch (e) {
       lastErr = e instanceof Error ? e : new Error(String(e));
-      if (i < attempts) await new Promise(r => setTimeout(r, 500 * i));
+      if (i < attempts) {
+        // Network error / abort / timeout — retry with exponential backoff
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i - 1)));
+      }
     }
   }
   throw lastErr ?? new Error("fetch failed after retries");

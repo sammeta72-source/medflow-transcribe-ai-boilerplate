@@ -235,7 +235,7 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
       )}
 
       {/* Main column */}
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden">
         {/* Top header */}
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <button
@@ -298,7 +298,7 @@ export function AppShell({ active, onNavigate, children, unreadNotifs, onShowNot
         </header>
 
         {/* Main content */}
-        <main className="flex-1 px-4 py-5 lg:px-6 lg:py-6">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-5 lg:px-6 lg:py-6">{children}</main>
 
         {/* Sticky footer */}
         <footer className="mt-auto border-t border-border bg-[#17202A] px-4 py-3 text-[11px] text-white/70 lg:px-6">

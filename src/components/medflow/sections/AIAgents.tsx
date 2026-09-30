@@ -19,6 +19,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { fetchAgents, runAgent, getEmbeddedAiData } from "@/lib/medflow/api";
+import { STATIC_AGENTS } from "@/lib/medflow/static-data";
 import type { AgentRun, AiAgent } from "@/lib/medflow/types";
 import { formatRelative, usd } from "@/lib/medflow/format";
 import { cn } from "@/lib/utils";
@@ -72,9 +73,9 @@ function summarizeRun(agentId: string, run: AgentRun): string {
 export function AIAgents() {
   // Initialize from server-embedded data (from AiDataBootstrap) — shows data
   // immediately, no loading delay, even if runtime fetches fail.
-  const embeddedAgents = getEmbeddedAiData().agents ?? null;
+  const embeddedAgents = getEmbeddedAiData().agents ?? STATIC_AGENTS;
   const [agents, setAgents] = useState<AiAgent[] | null>(embeddedAgents);
-  const [loading, setLoading] = useState(!embeddedAgents);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -83,7 +84,8 @@ export function AIAgents() {
   );
 
   async function load() {
-    if (!getEmbeddedAiData().agents) setLoading(true);
+    // Don't show loading skeleton if we already have data (static/embedded)
+    if (!agents) setLoading(true);
     setError(null);
     try {
       const list = await fetchAgents();

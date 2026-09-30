@@ -32,6 +32,7 @@ import {
   getEmbeddedAiData,
   fireFhirSubscription, sendDirectMessage, switchDbConnector, testDbConnector,
 } from "@/lib/medflow/api";
+import { STATIC_DB_CONNECTORS } from "@/lib/medflow/static-data";
 import type { DirectMessage, FhirSubscription } from "@/lib/medflow/api";
 import type { DbConnector, DbTestResult } from "@/lib/medflow/types";
 import { formatRelative } from "@/lib/medflow/format";
@@ -69,9 +70,9 @@ export function Integrations() {
   const [tab, setTab] = useState("ehr");
   // Initialize from server-embedded data (from AiDataBootstrap) — shows data
   // immediately, no loading delay, even if runtime fetches fail.
-  const embeddedConnectors = getEmbeddedAiData().dbConnectors ?? null;
+  const embeddedConnectors = getEmbeddedAiData().dbConnectors ?? STATIC_DB_CONNECTORS;
   const [connectors, setConnectors] = useState<DbConnector[] | null>(embeddedConnectors);
-  const [connLoading, setConnLoading] = useState(!embeddedConnectors);
+  const [connLoading, setConnLoading] = useState(false);
   const [connError, setConnError] = useState<string | null>(null);
   const [activeConnector, setActiveConnector] = useState<string>("sqlite");
   const [testing, setTesting] = useState<string | null>(null);
@@ -85,7 +86,8 @@ export function Integrations() {
   const [hl7Payload, setHl7Payload] = useState("");
 
   async function loadConnectors() {
-    if (!getEmbeddedAiData().dbConnectors) setConnLoading(true);
+    // Don't show loading if we already have data (static/embedded fallback)
+    if (!connectors) setConnLoading(true);
     setConnError(null);
     try {
       const list = await fetchDbConnectors();

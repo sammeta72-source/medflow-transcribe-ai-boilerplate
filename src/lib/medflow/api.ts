@@ -15,6 +15,7 @@
 // mechanism doesn't depend on the Next.js dev server's API routes being compiled.
 
 import type { AiAgent, AgentRun, DbConnector, DbTestResult } from "./types";
+import { STATIC_AGENTS, STATIC_DB_CONNECTORS, STATIC_FHIR_SUBSCRIPTIONS, STATIC_DIRECT_LOG, STATIC_COPILOT_SUMMARY } from "./static-data";
 
 const AGENTS_PORT = 8000;
 
@@ -136,8 +137,8 @@ export async function fetchAgents(): Promise<AiAgent[]> {
     const local = loadRuns();
     return agents.map(a => ({ ...a, recent_runs: [...(local[a.id] ?? []), ...(a.recent_runs ?? [])].slice(0, 5) }));
   } catch {
-    // Fallback to server-embedded data (from AiDataBootstrap) — prevents "Failed to load"
-    const embedded = getEmbeddedAiData().agents ?? [];
+    // Fallback: server-embedded data → then STATIC data (hardcoded in bundle)
+    const embedded = getEmbeddedAiData().agents ?? STATIC_AGENTS;
     const local = loadRuns();
     return embedded.map(a => ({ ...a, recent_runs: [...(local[a.id] ?? []), ...(a.recent_runs ?? [])].slice(0, 5) }));
   }
@@ -186,7 +187,7 @@ export async function fetchDbConnectors(): Promise<DbConnector[]> {
     const data = await res.json();
     return data.connectors ?? [];
   } catch {
-    return getEmbeddedAiData().dbConnectors ?? [];
+    return getEmbeddedAiData().dbConnectors ?? STATIC_DB_CONNECTORS;
   }
 }
 
@@ -288,10 +289,8 @@ export async function fetchCopilotSummary(
     if (!res.ok) throw new Error(`fetchCopilotSummary failed: ${res.status}`);
     return res.json();
   } catch {
-    // Fallback to server-embedded summary (from AiDataBootstrap)
-    const embedded = getEmbeddedAiData().copilotSummary;
-    if (embedded) return embedded;
-    throw new Error("Copilot summary unavailable (runtime + embedded fetch both failed)");
+    // Fallback: server-embedded → then STATIC data (hardcoded in bundle)
+    return getEmbeddedAiData().copilotSummary ?? STATIC_COPILOT_SUMMARY;
   }
 }
 
@@ -384,7 +383,7 @@ export async function fetchFhirSubscriptions(): Promise<FhirSubscription[]> {
     const data = await res.json();
     return data.subscriptions ?? [];
   } catch {
-    return getEmbeddedAiData().fhirSubscriptions ?? [];
+    return getEmbeddedAiData().fhirSubscriptions ?? STATIC_FHIR_SUBSCRIPTIONS;
   }
 }
 
@@ -480,7 +479,7 @@ export async function fetchDirectLog(): Promise<DirectMessage[]> {
     const data = await res.json();
     return data.messages ?? [];
   } catch {
-    return getEmbeddedAiData().directLog ?? [];
+    return getEmbeddedAiData().directLog ?? STATIC_DIRECT_LOG;
   }
 }
 

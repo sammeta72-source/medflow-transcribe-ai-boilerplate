@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedFlow Transcribe AI — Customer Onboarding & Support Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #0B5345; font-family: 'Inter', sans-serif; color: #17202A; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  :root { --primary: #0B5345; --secondary: #1ABC9C; --dark: #17202A; --bg: #E8F8F5; --border: #d4e6e0; --muted: #5b6770; }
+  .page { width: 210mm; min-height: 297mm; padding: 20mm 18mm; background: #ffffff; position: relative; page-break-after: always; break-after: page; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+
+  /* Cover */
+  .cover { background: linear-gradient(135deg, #0B5345 0%, #0d6651 55%, #1ABC9C 100%); color: white; display: flex; flex-direction: column; justify-content: space-between; padding: 0; overflow: hidden; }
+  .cover-inner { padding: 35mm 22mm; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .cover .brand { font-size: 12px; font-weight: 600; letter-spacing: 2px; color: #1ABC9C; text-transform: uppercase; margin-bottom: 16px; }
+  .cover h1 { font-size: 38px; font-weight: 800; line-height: 1.15; color: white; margin-bottom: 12px; }
+  .cover .subtitle { font-size: 15px; color: #E8F8F5; line-height: 1.5; max-width: 150mm; margin-bottom: 28px; }
+  .cover-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+  .cover-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(26,188,156,0.4); border-radius: 6px; padding: 5px 12px; font-size: 10px; font-weight: 600; color: white; }
+  .cover-meta { font-size: 11px; color: #1ABC9C; line-height: 1.8; }
+  .cover-footer { padding: 14mm 22mm; border-top: 1px solid rgba(255,255,255,0.1); }
+  .cover-footer .meta-row { display: flex; justify-content: space-between; font-size: 10px; color: rgba(255,255,255,0.6); }
+
+  /* Typography */
+  h2 { font-size: 22px; font-weight: 700; color: var(--primary); margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid var(--secondary); }
+  h3 { font-size: 14px; font-weight: 600; color: #16a085; margin-top: 18px; margin-bottom: 6px; }
+  h4 { font-size: 12px; font-weight: 600; color: var(--dark); margin-top: 12px; margin-bottom: 4px; }
+  p { font-size: 10.5px; line-height: 1.6; color: var(--dark); margin-bottom: 8px; text-align: justify; }
+  .lead { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+  strong { color: var(--primary); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5px; }
+  th { background: var(--primary); color: white; font-weight: 600; text-align: left; padding: 8px 10px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--bg); }
+
+  /* Cards */
+  .card { background: #f8fafa; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+  .card-body { font-size: 10px; line-height: 1.5; color: var(--muted); }
+  .card-body strong { color: var(--dark); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  /* Callout */
+  .callout { background: var(--bg); border-left: 4px solid var(--secondary); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 12px 0; }
+  .callout-title { font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+  .callout-text { font-size: 10px; color: var(--muted); line-height: 1.5; }
+
+  /* Q&A block */
+  .qa { margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+  .qa-num { display: inline-block; background: var(--secondary); color: white; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 4px; margin-right: 8px; vertical-align: middle; }
+  .qa-q { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 8px; line-height: 1.4; }
+  .qa-a { font-size: 10.5px; line-height: 1.6; color: var(--dark); }
+  .qa-a p { margin-bottom: 6px; }
+
+  /* Step block */
+  .step { display: flex; gap: 12px; margin-bottom: 10px; }
+  .step-num { flex-shrink: 0; width: 28px; height: 28px; background: var(--primary); color: white; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  .step-body { flex: 1; }
+  .step-body p { margin-bottom: 4px; }
+  .step-code { background: #1a2a30; color: #cfe; border-radius: 4px; padding: 6px 10px; font-family: 'Courier New', monospace; font-size: 9px; margin: 4px 0; overflow-x: auto; white-space: nowrap; }
+
+  /* Badge */
+  .badge { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-green { background: #d4f0e0; color: #1a7a3a; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-teal { background: #ccfbf1; color: #0f766e; }
+
+  /* Footer */
+  .page-footer { position: absolute; bottom: 8mm; left: 18mm; right: 18mm; display: flex; justify-content: space-between; font-size: 8px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 6px; }
+  .page-footer .brand { font-weight: 600; color: var(--primary); }
+
+  /* Lists */
+  ul { font-size: 10px; line-height: 1.6; color: var(--dark); padding-left: 18px; margin-bottom: 8px; }
+  ul li { margin-bottom: 4px; }
+  ul li::marker { color: var(--secondary); }
+
+  .no-break { break-inside: avoid; page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="page cover">
+  <div class="cover-inner">
+    <div class="brand">MedFlow Transcribe AI</div>
+    <h1>Customer Onboarding<br>& Support Guide</h1>
+    <div class="subtitle">A practical Q&A reference for selling, installing, and supporting the MedFlow Transcribe AI boilerplate across diverse customer types — from developers to healthcare executives.</div>
+    <div class="cover-badges">
+      <span class="cover-badge">Gumroad / Payhip</span>
+      <span class="cover-badge">Windows / Mac / Linux</span>
+      <span class="cover-badge">Non-Technical Friendly</span>
+      <span class="cover-badge">4 Buyer Personas</span>
+      <span class="cover-badge">Support Playbook</span>
+    </div>
+    <div class="cover-meta">
+      Document Version 1.0<br>
+      Prepared for: Sellers, Resellers, Support Teams<br>
+      Audience: Sales, Customer Success, Technical Support
+    </div>
+  </div>
+  <div class="cover-footer">
+    <div class="meta-row">
+      <span>© 2026 MedFlow Transcribe AI</span>
+      <span>Confidential — For Seller Reference</span>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 1: Q1 — ZIP Download -->
+<div class="page">
+  <h2>Question 1: Downloading the Boilerplate</h2>
+  <p class="lead">"If I simply download the ZIP file, is it enough, or do I have to go to the directory you specified for boilerplate?"</p>
+
+  <div class="qa">
+    <div class="qa-q"><span class="qa-num">Q1</span> Do I just download the ZIP, or go to a specific directory?</div>
+    <div class="qa-a">
+      <p><strong>Just download the ZIP — it has everything.</strong> A single complete package file (<code>medflow-transcribe-ai-boilerplate.zip</code>, 1.1 MB, 232 files) contains the entire project:</p>
+      <ul>
+        <li><strong>All source code</strong> — <code>src/</code> (Next.js frontend + API routes), <code>prisma/</code> (database schema + seed), <code>mini-services/</code> (Python FastAPI backend), <code>public/</code> (logo + hero images)</li>
+        <li><strong>All boilerplate docs</strong> — <code>README.md</code>, <code>LICENSE.md</code>, <code>CHANGELOG.md</code>, <code>.env.example</code>, <code>docs/</code> (architecture + deployment + API reference + customization)</li>
+        <li><strong>Docker config</strong> — <code>docker-compose.yml</code>, <code>Caddyfile</code></li>
+        <li><strong>All config files</strong> — <code>package.json</code>, <code>next.config.ts</code>, <code>tailwind.config.ts</code>, <code>tsconfig.json</code>, <code>eslint.config.mjs</code>, <code>components.json</code></li>
+        <li><strong>Bonus PDFs</strong> — 34-page compliance spec + 13-page monetization strategy (in <code>assets/</code>)</li>
+      </ul>
+      <p>The ZIP <strong>excludes</strong> <code>node_modules/</code>, <code>.next/</code>, <code>*.db</code>, and <code>*.log</code> — these are generated automatically when the buyer runs <code>bun install</code> + <code>bun run dev</code>.</p>
+      <p><strong>You do NOT need to navigate to any directory.</strong> The ZIP is a self-contained, ready-to-sell package. Upload it directly to Gumroad or Payhip.</p>
+    </div>
+  </div>
+
+  <div class="callout no-break">
+    <div class="callout-title">Seller Action</div>
+    <div class="callout-text">Download the ZIP from the download panel. Upload it to Gumroad/Payhip as the primary product file. Set the price per your chosen license tier ($299 Starter / $599 Professional / $1,499 Enterprise / $4,999 Reseller). The buyer receives the ZIP, extracts it, and follows the README quickstart.</div>
+  </div>
+
+  <h3>What the buyer sees when they extract the ZIP:</h3>
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body"><p><strong>Extract</strong> the ZIP to any folder (e.g., <code>C:\Projects\medflow</code>)</p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body"><p><strong>Read README.md</strong> — the 5-minute quickstart guide with installation steps</p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body"><p><strong>Copy .env.example to .env</strong> — fill in database URL, auth secret, etc.</p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body"><p><strong>Run</strong> <code>bun install</code> → <code>bun run db:push</code> → <code>bun run prisma/seed.ts</code> → <code>bun run dev</code></p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body"><p><strong>Open</strong> <code>http://localhost:3000</code> → click "Enter Platform" → explore 29 sections</p></div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Customer Onboarding & Support Guide</span><span>Page 1</span></div>
+</div>
+
+<!-- PAGE 2: Q2 — Windows -->
+<div class="page">
+  <h2>Question 2: Running on Windows</h2>
+  <p class="lead">"I am using Windows — how can I approach the directory you mentioned?"</p>
+
+  <div class="qa">
+    <div class="qa-q"><span class="qa-num">Q2</span> How do I run this on Windows?</div>
+    <div class="qa-a">
+      <p>The project runs <strong>natively on Windows</strong>. No Linux or Mac needed. Here's the step-by-step:</p>
+    </div>
+  </div>
+
+  <h3>Step 1: Download the ZIP</h3>
+  <p>Download <code>medflow-transcribe-ai-boilerplate.zip</code> from the download panel to your Windows machine (typically the Downloads folder).</p>
+
+  <h3>Step 2: Extract the ZIP</h3>
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <p>Right-click the ZIP file → <strong>"Extract All..."</strong></p>
+      <p>Choose a destination folder, e.g., <code>C:\Projects\medflow</code></p>
+      <p>Click <strong>"Extract"</strong></p>
+    </div>
+  </div>
+
+  <h3>Step 3: Install Prerequisites (3 free tools)</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>Download URL</th><th>Purpose</th><th>Install Steps</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Bun</strong> (or Node.js 20+)</td><td>https://bun.sh</td><td>JavaScript runtime + package manager</td><td>Open PowerShell → run: <code>irm bun.sh/install.ps1 | iex</code></td></tr>
+      <tr><td><strong>Python 3.12+</strong></td><td>https://python.org</td><td>FastAPI backend (AI agents)</td><td>Download installer → check "Add Python to PATH" → Install</td></tr>
+      <tr><td><strong>Git</strong> (optional)</td><td>https://git-scm.com</td><td>Version control</td><td>Download → install with default settings</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Alternative to Bun:</strong> If Bun doesn't work on your Windows version, use <strong>Node.js 20+</strong> from https://nodejs.org — just replace every <code>bun</code> command with <code>npx</code> or <code>npm run</code>.</p>
+
+  <h3>Step 4: Run the App (PowerShell)</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><p>Open PowerShell → navigate to the project:</p><div class="step-code">cd C:\Projects\medflow</div></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><p>Install dependencies:</p><div class="step-code">bun install</div><p>(or: <code>npm install</code>)</p></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><p>Copy environment template:</p><div class="step-code">copy .env.example .env</div></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><p>Create database + seed demo data:</p><div class="step-code">bun run db:push
+bun run prisma/seed.ts</div><p>(or: <code>npx prisma db push</code> + <code>npx tsx prisma/seed.ts</code>)</p></div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><p>Start the app:</p><div class="step-code">bun run dev</div><p>(or: <code>npm run dev</code>)</p></div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body"><p>Open browser → <code>http://localhost:3000</code> → click "Enter Platform"</p></div></div>
+
+  <div class="callout no-break">
+    <div class="callout-title">Optional: Start the FastAPI Backend (AI Agents)</div>
+    <div class="callout-text">Open a SECOND PowerShell window:<br><code>cd C:\Projects\medflow\mini-services\ai-agents-service</code><br><code>pip install -r requirements.txt</code><br><code>python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload</code><br>This enables AI Agents, DB Connectors, FHIR/HL7, Entity Extraction + Hallucination Detection. The app works WITHOUT it (3-tier static fallback shows pre-baked data).</div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Customer Onboarding & Support Guide</span><span>Page 2</span></div>
+</div>
+
+<!-- PAGE 3: Q3 — Compatibility -->
+<div class="page">
+  <h2>Question 3: Windows Compatibility</h2>
+  <p class="lead">"Will the downloaded boilerplate run in my Windows environment? If not, what do I do?"</p>
+
+  <div class="qa">
+    <div class="qa-q"><span class="qa-num">Q3</span> Will it run on Windows?</div>
+    <div class="qa-a">
+      <p><strong>Yes — it runs natively on Windows.</strong> Every component is cross-platform:</p>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Component</th><th>Windows Compatible?</th><th>How It Works</th></tr></thead>
+    <tbody>
+      <tr><td>Next.js frontend</td><td><span class="badge badge-green">Yes</span></td><td>Bun or Node.js runs natively on Windows — no VM needed</td></tr>
+      <tr><td>Prisma + SQLite</td><td><span class="badge badge-green">Yes</span></td><td>SQLite is file-based (no server) — works on Windows out of the box</td></tr>
+      <tr><td>FastAPI backend</td><td><span class="badge badge-green">Yes</span></td><td>Python 3.12 runs natively on Windows</td></tr>
+      <tr><td>Tailwind CSS + shadcn/ui</td><td><span class="badge badge-green">Yes</span></td><td>Built into Next.js build process — no separate install</td></tr>
+      <tr><td>Docker Compose</td><td><span class="badge badge-amber">Optional</span></td><td>Use Docker Desktop for Windows (only for Postgres/Redis/MinIO — not required for basic use)</td></tr>
+      <tr><td>Caddy gateway</td><td><span class="badge badge-amber">Optional</span></td><td>Only needed for the XTransformPort proxy. The app works WITHOUT it (uses Next.js proxy + static fallback)</td></tr>
+      <tr><td>z-ai-web-dev-sdk (AI)</td><td><span class="badge badge-green">Yes</span></td><td>Server-side only — runs inside Next.js API routes on Windows</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout no-break">
+    <div class="callout-title">If Anything Doesn't Work — Use WSL2</div>
+    <div class="callout-text">
+      If you hit any Windows-specific issue (rare), use WSL2 (Windows Subsystem for Linux):
+      <br><br>
+      <strong>Step 1:</strong> Open PowerShell as Administrator → run <code>wsl --install</code><br>
+      <strong>Step 2:</strong> Restart your PC<br>
+      <strong>Step 3:</strong> Open "Ubuntu" from the Start menu<br>
+      <strong>Step 4:</strong> Install Bun + Python inside WSL2:<br>
+      &nbsp;&nbsp;<code>curl -fsSL https://bun.sh/install | bash</code><br>
+      &nbsp;&nbsp;<code>sudo apt update && sudo apt install python3 python3-pip</code><br>
+      <strong>Step 5:</strong> Navigate to your project (accessible at <code>/mnt/c/Projects/medflow</code>)<br>
+      <strong>Step 6:</strong> Run the same commands as Linux<br>
+      <br>
+      <strong>WSL2 gives 100% Linux compatibility</strong> — everything works identically to the development sandbox.
+    </div>
+  </div>
+
+  <h3>Windows vs Mac vs Linux — What's Different?</h3>
+  <table>
+    <thead><tr><th>Step</th><th>Windows</th><th>Mac</th><th>Linux</th></tr></thead>
+    <tbody>
+      <tr><td>Install Bun</td><td><code>irm bun.sh/install.ps1</code></td><td><code>curl -fsSL bun.sh/install</code></td><td><code>curl -fsSL bun.sh/install</code></td></tr>
+      <tr><td>Install Python</td><td>Download from python.org</td><td><code>brew install python</code></td><td><code>sudo apt install python3</code></td></tr>
+      <tr><td>Copy .env</td><td><code>copy .env.example .env</code></td><td><code>cp .env.example .env</code></td><td><code>cp .env.example .env</code></td></tr>
+      <tr><td>Path separator</td><td><code>\</code> (backslash)</td><td><code>/</code> (forward slash)</td><td><code>/</code> (forward slash)</td></tr>
+      <tr><td>Everything else</td><td colspan="3" style="text-align:center"><strong>Identical — same commands, same output, same experience</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Customer Onboarding & Support Guide</span><span>Page 3</span></div>
+</div>
+
+<!-- PAGE 4: Q4 — Non-Technical Customers -->
+<div class="page">
+  <h2>Question 4: Supporting Non-Technical Customers</h2>
+  <p class="lead">"How will a customer who purchased the boilerplate code respond? If he is a software professional, no problem — else what is the position and how can we help?"</p>
+
+  <div class="qa">
+    <div class="qa-q"><span class="qa-num">Q4</span> How do non-technical customers deal with this?</div>
+    <div class="qa-a">
+      <p>A boilerplate is a <strong>code template for developers</strong>. A non-technical buyer CANNOT run it without help. This is standard for ALL boilerplates on Gumroad (ShipFast, Supastarter, etc.) — they're all developer products.</p>
+      <p>However, you can <strong>expand your market 5x</strong> by offering options for non-technical buyers. Here are <strong>4 proven strategies</strong>:</p>
+    </div>
+  </div>
+
+  <h3>Strategy A: Done-For-You Installation Service (paid add-on)</h3>
+  <div class="card no-break">
+    <div class="card-title">One-Time Installation Service — $199 to $499</div>
+    <div class="card-body">
+      <p><strong>What you do:</strong> The buyer sends you their server/domain details (or you set up a Vercel + Render deployment for them). You install + configure + deploy the app. They receive a working URL.</p>
+      <p><strong>How to offer:</strong> Add to your Gumroad listing: "Don't know how to code? I'll install + configure MedFlow for you — $299 one-time. Contact me after purchase."</p>
+      <p><strong>Your effort:</strong> 1-2 hours of work per customer</p>
+      <p><strong>Who it's for:</strong> Healthcare BPO owners, clinic managers, hospital IT directors</p>
+    </div>
+  </div>
+
+  <h3>Strategy B: Hosted SaaS Version (recurring revenue)</h3>
+  <div class="card no-break">
+    <div class="card-title">Hosted SaaS — $99 to $499/month</div>
+    <div class="card-body">
+      <p><strong>What you do:</strong> You host the app on Vercel + Render. The buyer gets a login URL — they use it as a SaaS product. They do NOT receive the source code.</p>
+      <p><strong>How to offer:</strong> "Want MedFlow without the hassle? Use our hosted version — $299/month. We handle setup, maintenance, updates, security, and backups."</p>
+      <p><strong>Your effort:</strong> Initial setup (2h) + $20-50/month hosting cost + occasional maintenance</p>
+      <p><strong>Who it's for:</strong> Non-technical buyers who want a working product, not code</p>
+      <p><strong>Revenue:</strong> Recurring monthly — much higher LTV than one-time sale</p>
+    </div>
+  </div>
+
+  <h3>Strategy C: Setup Video + Non-Technical Guide</h3>
+  <div class="card no-break">
+    <div class="card-title">Setup Video + Guide — Included free with purchase</div>
+    <div class="card-body">
+      <p><strong>What you do:</strong> Record a 15-minute video showing the EXACT steps to run the app on Windows (with screen capture of every click, every command, every output).</p>
+      <p><strong>Include in the package:</strong> A <code>SETUP-FOR-NON-DEVELOPERS.md</code> with step-by-step screenshots.</p>
+      <p><strong>How to offer:</strong> "Includes a 15-minute setup video + step-by-step guide — no coding required if you can install software."</p>
+      <p><strong>Your effort:</strong> Record 1 video (15 min) + write 1 guide (1-2 hours)</p>
+      <p><strong>Who it's for:</strong> Semi-technical buyers (knows how to install software, not how to code)</p>
+    </div>
+  </div>
+
+  <h3>Strategy D: One-Click Deploy Buttons</h3>
+  <div class="card no-break">
+    <div class="card-title">One-Click Deploy — Free (included in README)</div>
+    <div class="card-body">
+      <p><strong>What you do:</strong> Add "Deploy to Vercel" + "Deploy to Render" buttons in the README.md.</p>
+      <p><strong>How it works:</strong> The buyer clicks the button → authorizes with their Vercel/Render account → the app auto-deploys → they get a live URL in 5 minutes. No coding, no terminal, no commands.</p>
+      <p><strong>How to offer:</strong> "One-click deploy — no coding required. Click the button, get your app live in 5 minutes."</p>
+      <p><strong>Your effort:</strong> 30 minutes to set up the deploy buttons</p>
+      <p><strong>Who it's for:</strong> Non-technical buyers who have a Vercel account (free)</p>
+    </div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Customer Onboarding & Support Guide</span><span>Page 4</span></div>
+</div>
+
+<!-- PAGE 5: Buyer Persona Matrix -->
+<div class="page">
+  <h2>Buyer Persona Matrix — Who Buys + How to Help</h2>
+  <p>Not all buyers are the same. Here's a matrix of the 5 buyer personas you'll encounter + how to support each:</p>
+
+  <table>
+    <thead>
+      <tr><th>Buyer Persona</th><th>Technical Level</th><th>What They Want</th><th>What to Sell</th><th>How to Support</th><th>Revenue</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>The Developer</strong></td>
+        <td><span class="badge badge-green">Expert</span></td>
+        <td>Source code to customize + build on</td>
+        <td>Starter ($299) or Professional ($599)</td>
+        <td>GitHub issues + community support. They don't need hand-holding.</td>
+        <td>One-time: $299-$599</td>
+      </tr>
+      <tr>
+        <td><strong>The Agency/Freelancer</strong></td>
+        <td><span class="badge badge-teal">Advanced</span></td>
+        <td>White-label code for client projects</td>
+        <td>Enterprise ($1,499)</td>
+        <td>Email support (48h SLA). Provide customization docs. They have dev teams.</td>
+        <td>One-time: $1,499 + potential services</td>
+      </tr>
+      <tr>
+        <td><strong>The Healthcare Exec</strong></td>
+        <td><span class="badge badge-amber">Beginner</span></td>
+        <td>A working platform — doesn't care about code</td>
+        <td>Hosted SaaS ($299/mo) OR Done-for-you ($299 install)</td>
+        <td>Offer installation service OR hosted version. Provide a demo URL. Talk business value, not code.</td>
+        <td>$299 install OR $299/mo recurring</td>
+      </tr>
+      <tr>
+        <td><strong>The Reseller</strong></td>
+        <td><span class="badge badge-blue">Varies</span></td>
+        <td>Rebrand + resell the boilerplate on their own marketplace</td>
+        <td>Reseller ($4,999)</td>
+        <td>Priority support (12h SLA). Provide rebranding guide. 2 custom feature requests included.</td>
+        <td>One-time: $4,999 + their own sales</td>
+      </tr>
+      <tr>
+        <td><strong>The Curious Buyer</strong></td>
+        <td><span class="badge badge-red">None</span></td>
+        <td>Bought on impulse, doesn't know what to do</td>
+        <td>Starter ($299) — might upgrade</td>
+        <td>Point them to the setup video + guide. Offer installation service as upsell. Be patient + helpful. Some will become loyal customers.</td>
+        <td>$299 + potential upsell</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Recommended Gumroad/Payhip Listing Description</h3>
+  <div class="card no-break">
+    <div class="card-title">Product Description Template</div>
+    <div class="card-body">
+      <p style="font-family: monospace; white-space: pre-wrap; font-size: 9.5px; line-height: 1.6;">
+📋 <strong>What's Included:</strong>
+✅ Full source code (Next.js 16 + FastAPI + Prisma + SQLite)
+✅ 29 ready-to-use dashboard sections
+✅ 10 AI agents (transcription, QA, routing, delivery, etc.)
+✅ HIPAA/GDPR compliance documentation (34-page PDF)
+✅ Monetization strategy (13-page pricing guide)
+✅ Docker setup for one-command deployment
+✅ README with 5-minute quickstart guide
+
+🚀 <strong>Don't know how to code?</strong>
+• <strong>Option 1:</strong> Use our hosted version ($299/mo) — no setup needed
+• <strong>Option 2:</strong> Order our "Done-For-You" installation ($299 one-time)
+• <strong>Option 3:</strong> Follow our 15-minute setup video (included)
+• <strong>Option 4:</strong> Click "Deploy to Vercel" (one-click, no terminal)
+
+💬 <strong>Need help?</strong> Email support@yourcompany.com after purchase.
+7-day money-back guarantee. No questions asked.
+      </p>
+    </div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Customer Onboarding & Support Guide</span><span>Page 5</span></div>
+</div>
+
+<!-- PAGE 6: Support Playbook -->
+<div class="page">
+  <h2>Support Playbook — Handling Customer Questions</h2>
+  <p>Here are the most common questions buyers will ask + how to answer them:</p>
+
+  <h3>Common Support Questions + Answers</h3>
+
+  <div class="qa no-break">
+    <div class="qa-q"><span class="badge badge-teal">FAQ</span> "I get an error running 'bun install' — what do I do?"</div>
+    <div class="qa-a">
+      <p><strong>Answer:</strong> "Make sure you have Bun installed. Open PowerShell and run <code>irm bun.sh/install.ps1 | iex</code>. If Bun doesn't work, install Node.js 20+ from nodejs.org and use <code>npm install</code> instead of <code>bun install</code>. All other commands work the same — just replace 'bun' with 'npx' or 'npm run'."</p>
+    </div>
+  </div>
+
+  <div class="qa no-break">
+    <div class="qa-q"><span class="badge badge-teal">FAQ</span> "The app shows 'Failed to load' on AI Agents / Integrations"</div>
+    <div class="qa-a">
+      <p><strong>Answer:</strong> "Those sections need the Python FastAPI backend running. Open a second terminal: <code>cd mini-services/ai-agents-service</code> → <code>pip install -r requirements.txt</code> → <code>python -m uvicorn main:app --port 8000 --reload</code>. If you don't want to run Python, the sections still show pre-baked demo data (3-tier static fallback) — the app works without the backend."</p>
+    </div>
+  </div>
+
+  <div class="qa no-break">
+    <div class="qa-q"><span class="badge badge-teal">FAQ</span> "How do I connect real AI (OpenAI/Whisper)?"</div>
+    <div class="qa-a">
+      <p><strong>Answer:</strong> "Set <code>OPENAI_API_KEY</code> in your <code>.env</code> file. The Voice Chatbot + Live Dictation already use the z-ai-web-dev-sdk (pre-installed, no key needed). For the 10 AI agents, edit <code>mini-services/ai-agents-service/main.py</code> to call real AI APIs instead of the simulated responses."</p>
+    </div>
+  </div>
+
+  <div class="qa no-break">
+    <div class="qa-q"><span class="badge badge-teal">FAQ</span> "How do I connect real Stripe billing?"</div>
+    <div class="qa-a">
+      <p><strong>Answer:</strong> "Set <code>STRIPE_SECRET_KEY</code> + <code>STRIPE_PUBLISHABLE_KEY</code> in <code>.env</code>. Then edit <code>src/app/api/medflow/stripe/route.ts</code> to replace the mock data with real Stripe API calls. See <code>docs/CUSTOMIZATION.md</code> section 6 for code examples."</p>
+    </div>
+  </div>
+
+  <div class="qa no-break">
+    <div class="qa-q"><span class="badge badge-teal">FAQ</span> "Is this HIPAA-compliant?"</div>
+    <div class="qa-a">
+      <p><strong>Answer:</strong> "The platform implements HIPAA-aligned technical safeguards (encryption, RBAC, audit logging, MFA). It is NOT certified — you must complete your own Security Risk Analysis (the built-in HIPAA SRA tool helps with this) + sign BAAs with your cloud providers. The 34-page compliance spec PDF maps every control to its regulatory citation."</p>
+    </div>
+  </div>
+
+  <div class="qa no-break">
+    <div class="qa-q"><span class="badge badge-teal">FAQ</span> "Can I use this for real patients?"</div>
+    <div class="qa-a">
+      <p><strong>Answer:</strong> "Yes — but you must: (1) complete HIPAA compliance certification, (2) sign a BAA with your cloud provider (AWS/Azure/GCP), (3) connect real AI providers, (4) configure data retention + encryption policies. The compliance spec PDF + HIPAA SRA tool guide you through this."</p>
+    </div>
+  </div>
+
+  <div class="qa no-break">
+    <div class="qa-q"><span class="badge badge-teal">FAQ</span> "How do I change the colors / logo / name?"</div>
+    <div class="qa-a">
+      <p><strong>Answer:</strong> "See <code>docs/CUSTOMIZATION.md</code> — change colors in <code>src/app/globals.css</code>, replace the logo in <code>public/medflow-logo.png</code>, update the app name in <code>src/lib/medflow/constants.ts</code>. The theme is teal/green (#0B5345 + #1ABC9C) — change the CSS variables to your brand colors."</p>
+    </div>
+  </div>
+
+  <h3>Support Tier SLAs</h3>
+  <table>
+    <thead><tr><th>License Tier</th><th>Support Channel</th><th>Response Time</th><th>Support Duration</th></tr></thead>
+    <tbody>
+      <tr><td>Starter ($299)</td><td>GitHub Issues (community)</td><td>Best-effort (no SLA)</td><td>6 months updates</td></tr>
+      <tr><td>Professional ($599)</td><td>Email</td><td>48 business hours</td><td>3 months support + 6 months updates</td></tr>
+      <tr><td>Enterprise ($1,499)</td><td>Priority email</td><td>24 business hours</td><td>6 months support + 1 year updates</td></tr>
+      <tr><td>Reseller ($4,999)</td><td>Priority email + Slack</td><td>12 business hours</td><td>12 months support + lifetime updates</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout no-break">
+    <div class="callout-title">Money-Back Guarantee</div>
+    <div class="callout-text">Offer a <strong>7-day, no-questions-asked money-back guarantee</strong> on all tiers. This dramatically increases conversion rates on Gumroad/Payhip — buyers feel safe knowing they can refund. Process refunds within 24 hours. No friction. Happy refunded customers often re-buy later when they're ready.</div>
+  </div>
+
+  <div class="page-footer"><span class="brand">MedFlow Transcribe AI — Customer Onboarding & Support Guide</span><span>Page 6</span></div>
+</div>
+
+<!-- PAGE 7: Summary + Action Items -->
+<div class="page" style="background: linear-gradient(135deg, #0B5345 0%, #0d6651 55%, #1ABC9C 100%); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+  <div style="max-width: 160mm;">
+    <div style="font-size: 12px; font-weight: 600; letter-spacing: 2px; color: #1ABC9C; text-transform: uppercase; margin-bottom: 20px;">MedFlow Transcribe AI</div>
+    <h1 style="font-size: 32px; font-weight: 800; color: white; line-height: 1.2; margin-bottom: 16px;">Ready to Sell + Support</h1>
+    <p style="font-size: 13px; color: #E8F8F5; line-height: 1.6; margin-bottom: 28px; text-align: center;">You now have everything you need to sell MedFlow Transcribe AI on Gumroad, Payhip, or your own website — and support customers of every technical level.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px;">
+      <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 18px; border: 1px solid rgba(26,188,156,0.3);">
+        <div style="font-size: 11px; font-weight: 700; color: #1ABC9C; margin-bottom: 8px; text-transform: uppercase;">For Technical Buyers</div>
+        <div style="font-size: 11px; color: #E8F8F5; line-height: 1.5;">ZIP file → Extract → bun install → bun run dev → localhost:3000. 5-minute quickstart. Full source code. Complete docs.</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 18px; border: 1px solid rgba(26,188,156,0.3);">
+        <div style="font-size: 11px; font-weight: 700; color: #1ABC9C; margin-bottom: 8px; text-transform: uppercase;">For Non-Technical Buyers</div>
+        <div style="font-size: 11px; color: #E8F8F5; line-height: 1.5;">Setup video + guide (free) OR Done-for-you install ($299) OR Hosted SaaS ($299/mo) OR One-click deploy button.</div>
+      </div>
+    </div>
+
+    <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin-bottom: 28px; border: 1px solid rgba(26,188,156,0.2);">
+      <div style="font-size: 12px; font-weight: 700; color: #1ABC9C; margin-bottom: 10px; text-transform: uppercase;">Seller Checklist</div>
+      <div style="font-size: 11px; color: #E8F8F5; line-height: 1.8; text-align: left; padding-left: 16px;">
+        <strong>1.</strong> Download the ZIP from the download panel<br>
+        <strong>2.</strong> Upload to Gumroad/Payhip with your chosen price tier<br>
+        <strong>3.</strong> Record a 15-minute setup video for non-technical buyers<br>
+        <strong>4.</strong> Add "Done-For-You Installation" as a Gumroad service ($299)<br>
+        <strong>5.</strong> Set up a hosted SaaS version for recurring revenue ($299/mo)<br>
+        <strong>6.</strong> Add "Deploy to Vercel" one-click button to README<br>
+        <strong>7.</strong> Offer 7-day money-back guarantee<br>
+        <strong>8.</strong> Set up support email + respond within SLA<br>
+        <strong>9.</strong> Ask first 10 buyers for reviews — reviews drive sales<br>
+        <strong>10.</strong> Cross-sell compliance PDF ($49) + monetization PDF ($29)
+      </div>
+    </div>
+
+    <div style="font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.6;">
+      © 2026 MedFlow Transcribe AI · Confidential — For Seller Reference<br>
+      All prices in USD · Subject to change · Custom contracts available
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

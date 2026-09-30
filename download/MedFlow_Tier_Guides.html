@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MedFlow Transcribe AI — Comprehensive Tier Guides</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { background:#0B5345; font-family:'Inter',sans-serif; color:#17202A; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  :root { --p:#0B5345; --s:#1ABC9C; --d:#17202A; --bg:#E8F8F5; --b:#d4e6e0; --m:#5b6770; }
+  .page { width:210mm; min-height:297mm; padding:18mm 16mm 24mm; background:#fff; position:relative; page-break-after:always; break-after:page; overflow:hidden; }
+  .page:last-child { page-break-after:auto; break-after:auto; }
+
+  /* Watermark — SatyaVault on every page */
+  .watermark { position:fixed; top:45%; left:50%; transform:translate(-50%,-50%) rotate(-35deg); font-size:72px; font-weight:900; color:rgba(11,83,69,0.04); letter-spacing:4px; z-index:0; pointer-events:none; user-select:none; }
+  .page > * { position:relative; z-index:1; }
+
+  /* Author footer on every page */
+  .author-footer { position:absolute; bottom:6mm; left:16mm; right:16mm; display:flex; justify-content:space-between; align-items:center; font-size:7.5px; color:var(--m); border-top:1px solid var(--b); padding-top:5px; z-index:2; }
+  .author-footer .name { font-weight:600; color:var(--p); }
+  .author-footer .watermark-text { font-size:8px; font-weight:700; color:rgba(11,83,69,0.15); letter-spacing:1px; }
+
+  /* Cover */
+  .cover { background:linear-gradient(135deg,#0B5345 0%,#0d6651 55%,#1ABC9C 100%); color:#fff; display:flex; flex-direction:column; justify-content:space-between; padding:0; }
+  .cover-inner { padding:40mm 22mm; flex:1; display:flex; flex-direction:column; justify-content:center; }
+  .cover .brand { font-size:11px; font-weight:600; letter-spacing:2px; color:#1ABC9C; text-transform:uppercase; margin-bottom:14px; }
+  .cover h1 { font-size:36px; font-weight:800; line-height:1.15; color:#fff; margin-bottom:10px; }
+  .cover .sub { font-size:14px; color:#E8F8F5; line-height:1.5; max-width:150mm; margin-bottom:24px; }
+  .cover-badges { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:24px; }
+  .cover-badge { background:rgba(255,255,255,0.12); border:1px solid rgba(26,188,156,0.4); border-radius:5px; padding:4px 10px; font-size:9px; font-weight:600; color:#fff; }
+  .cover-meta { font-size:10px; color:#1ABC9C; line-height:1.8; }
+  .cover-author { padding:14mm 22mm; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; font-size:9px; color:rgba(255,255,255,0.5); }
+  .cover-author .watermark-cover { font-size:11px; font-weight:700; color:rgba(255,255,255,0.15); letter-spacing:2px; }
+
+  /* Typography */
+  h2 { font-size:20px; font-weight:700; color:var(--p); margin-bottom:6px; padding-bottom:6px; border-bottom:2px solid var(--s); }
+  h3 { font-size:13px; font-weight:600; color:#16a085; margin-top:14px; margin-bottom:5px; }
+  h4 { font-size:11px; font-weight:600; color:var(--d); margin-top:10px; margin-bottom:3px; }
+  p { font-size:10px; line-height:1.55; color:var(--d); margin-bottom:6px; text-align:justify; }
+  .lead { font-size:11px; color:var(--m); line-height:1.5; margin-bottom:12px; }
+  strong { color:var(--p); }
+  code { background:#f0faf8; border:1px solid var(--b); border-radius:3px; padding:1px 5px; font-family:'Courier New',monospace; font-size:8.5px; color:var(--p); }
+
+  /* Tables */
+  table { width:100%; border-collapse:collapse; margin:8px 0 12px; font-size:8.5px; }
+  th { background:var(--p); color:#fff; font-weight:600; text-align:left; padding:6px 8px; font-size:8px; text-transform:uppercase; letter-spacing:0.5px; }
+  td { padding:6px 8px; border-bottom:1px solid var(--b); vertical-align:top; }
+  tr:nth-child(even) td { background:var(--bg); }
+
+  /* Cards */
+  .card { background:#f8fafa; border:1px solid var(--b); border-radius:6px; padding:12px; margin-bottom:10px; }
+  .card-title { font-size:12px; font-weight:700; color:var(--p); margin-bottom:4px; }
+  .card-body { font-size:9.5px; line-height:1.5; color:var(--m); }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+
+  /* Callout */
+  .callout { background:var(--bg); border-left:3px solid var(--s); border-radius:0 6px 6px 0; padding:10px 14px; margin:10px 0; }
+  .callout-title { font-size:10px; font-weight:700; color:var(--p); margin-bottom:3px; }
+  .callout-text { font-size:9.5px; color:var(--m); line-height:1.5; }
+
+  /* Steps */
+  .step { display:flex; gap:10px; margin-bottom:8px; }
+  .step-num { flex-shrink:0; width:24px; height:24px; background:var(--p); color:#fff; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; }
+  .step-body { flex:1; }
+  .step-body p { margin-bottom:3px; }
+  .code-block { background:#1a2a30; color:#cfe; border-radius:4px; padding:6px 8px; font-family:'Courier New',monospace; font-size:8px; margin:3px 0; white-space:pre-wrap; word-break:break-all; }
+
+  /* Badge */
+  .badge { display:inline-block; border-radius:3px; padding:2px 6px; font-size:8px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+  .b-green { background:#d4f0e0; color:#1a7a3a; }
+  .b-amber { background:#fef3c7; color:#92400e; }
+  .b-red { background:#fee2e2; color:#991b1b; }
+  .b-blue { background:#dbeafe; color:#1e40af; }
+  .b-teal { background:#ccfbf1; color:#0f766e; }
+  .b-purple { background:#f3e8ff; color:#7c3aed; }
+
+  /* Lists */
+  ul { font-size:9.5px; line-height:1.5; color:var(--d); padding-left:16px; margin-bottom:6px; }
+  ul li { margin-bottom:3px; }
+  ul li::marker { color:var(--s); }
+  ol { font-size:9.5px; line-height:1.5; color:var(--d); padding-left:16px; margin-bottom:6px; }
+  ol li { margin-bottom:3px; }
+
+  .no-break { break-inside:avoid; page-break-inside:avoid; }
+  .tier-tag { display:inline-block; border-radius:4px; padding:3px 10px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+  .tier-starter { background:#dbeafe; color:#1e40af; }
+  .tier-pro { background:#d4f0e0; color:#1a7a3a; }
+  .tier-enterprise { background:#fef3c7; color:#92400e; }
+  .tier-reseller { background:#fee2e2; color:#991b1b; }
+</style>
+</head>
+<body>
+
+<!-- Watermark (fixed on all pages) -->
+<div class="watermark">SatyaVault</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- COVER PAGE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover-inner">
+    <div class="brand">MedFlow Transcribe AI</div>
+    <h1>Comprehensive<br>Tier Guides</h1>
+    <div class="sub">Business Process Guide · Reference Guide · Infrastructure & Installation Guide · Terminology & Acronyms Handbook — for all 4 license tiers: Starter, Professional, Enterprise, and Reseller.</div>
+    <div class="cover-badges">
+      <span class="cover-badge">Starter</span>
+      <span class="cover-badge">Professional</span>
+      <span class="cover-badge">Enterprise</span>
+      <span class="cover-badge">Reseller</span>
+      <span class="cover-badge">Linux / Windows / Mac</span>
+      <span class="cover-badge">SatyaVault</span>
+    </div>
+    <div class="cover-meta">
+      Document Version 1.0 · 2026<br>
+      Author: Satyanarayana Gowd V V Sammeta<br>
+      Designation: Applied AI & Data Science Engineer
+    </div>
+  </div>
+  <div class="cover-author">
+    <span>© 2026 MedFlow Transcribe AI · SatyaVault</span>
+    <span class="watermark-cover">SatyaVault</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2>Table of Contents</h2>
+  <table>
+    <thead><tr><th>#</th><th>Section</th><th>Pages</th></tr></thead>
+    <tbody>
+      <tr><td>Part 1</td><td><strong>Starter Tier — Business Process Guide</strong></td><td>3-4</td></tr>
+      <tr><td>Part 2</td><td><strong>Starter Tier — Reference Guide</strong></td><td>5-6</td></tr>
+      <tr><td>Part 3</td><td><strong>Starter Tier — Infrastructure & Installation Guide</strong></td><td>7-9</td></tr>
+      <tr><td>Part 4</td><td><strong>Professional Tier — Business Process Guide</strong></td><td>10-12</td></tr>
+      <tr><td>Part 5</td><td><strong>Professional Tier — Reference Guide</strong></td><td>13-15</td></tr>
+      <tr><td>Part 6</td><td><strong>Professional Tier — Infrastructure & Installation Guide</strong></td><td>16-18</td></tr>
+      <tr><td>Part 7</td><td><strong>Enterprise Tier — Business Process Guide</strong></td><td>19-22</td></tr>
+      <tr><td>Part 8</td><td><strong>Enterprise Tier — Reference Guide</strong></td><td>23-26</td></tr>
+      <tr><td>Part 9</td><td><strong>Enterprise Tier — Infrastructure & Installation Guide</strong></td><td>27-30</td></tr>
+      <tr><td>Part 10</td><td><strong>Reseller Tier — Business Process Guide</strong></td><td>31-35</td></tr>
+      <tr><td>Part 11</td><td><strong>Reseller Tier — Reference Guide</strong></td><td>36-40</td></tr>
+      <tr><td>Part 12</td><td><strong>Reseller Tier — Infrastructure & Installation Guide</strong></td><td>41-45</td></tr>
+      <tr><td>Part 13</td><td><strong>Terminology & Acronyms Handbook</strong> (all tiers)</td><td>46-50</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <div class="callout-title">Author</div>
+    <div class="callout-text"><strong>Satyanarayana Gowd V V Sammeta</strong> — Applied AI & Data Science Engineer<br>Document protected under SatyaVault. All rights reserved.</div>
+  </div>
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 1: STARTER — BUSINESS PROCESS GUIDE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="tier-tag tier-starter">Starter Tier — $299</div>
+  <h2>Part 1: Starter Tier — Business Process Guide</h2>
+  <p class="lead">The Starter tier provides core medical transcription operations for small clinics, solo providers, and individual transcriptionist groups. This guide covers the business workflows, operational procedures, and daily processes for the 12 included sections.</p>
+
+  <h3>1.1 Included Sections (12)</h3>
+  <table>
+    <thead><tr><th>#</th><th>Section</th><th>Business Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Overview</td><td>Daily KPI dashboard — total jobs, delivered, SLA compliance, quality score</td></tr>
+      <tr><td>2</td><td>Jobs (Kanban)</td><td>Drag-and-drop workflow board — 7 columns (Intake → Delivered)</td></tr>
+      <tr><td>3</td><td>My Queue</td><td>Personal job queue — assigned jobs for the current user</td></tr>
+      <tr><td>4</td><td>Upload Dictation</td><td>Audio file upload + metadata capture (patient ref, provider, priority)</td></tr>
+      <tr><td>5</td><td>Documents</td><td>Delivered/approved documents — view + download</td></tr>
+      <tr><td>6</td><td>Clarifications</td><td>Query workflow for unclear dictation or missing metadata</td></tr>
+      <tr><td>7</td><td>Quality</td><td>QA findings, error types, rework rate tracking</td></tr>
+      <tr><td>8</td><td>Templates</td><td>Document template library (SOAP, H&P, Discharge, etc.)</td></tr>
+      <tr><td>9</td><td>Analytics</td><td>Volume trends, specialty distribution, operational charts</td></tr>
+      <tr><td>10</td><td>Team</td><td>User management — members, roles, shifts, skills</td></tr>
+      <tr><td>11</td><td>Billing</td><td>Basic subscription + usage view (no Stripe integration)</td></tr>
+      <tr><td>12</td><td>Settings</td><td>Organization profile, timezone, feature flags</td></tr>
+    </tbody>
+  </table>
+
+  <h3>1.2 Daily Operational Workflow</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><p><strong>Morning (09:00):</strong> Check the Overview dashboard for overnight job volume, SLA risk flags, and escalations. Review the Kanban board for jobs in "AI Draft Ready" or "Awaiting QA" status.</p></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><p><strong>Mid-morning (10:00):</strong> Upload new dictations via the Upload Dictation section. Capture patient ref, provider, facility, priority, and turnaround time. The system auto-creates a job number + calculates the SLA deadline.</p></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><p><strong>Afternoon (13:00):</strong> Process jobs in My Queue — open the Job Detail Drawer, review the transcript + structured document, make corrections, submit to QA or provider review.</p></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><p><strong>Late afternoon (16:00):</strong> Review QA findings in the Quality section. Address rework items. Check the Clarifications section for any open queries from providers.</p></div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><p><strong>End of day (17:00):</strong> Check the Analytics dashboard for daily volume + quality trends. Ensure all STAT jobs are delivered. Review the billing usage meter.</p></div></div>
+
+  <h3>1.3 Roles & Responsibilities</h3>
+  <table>
+    <thead><tr><th>Role</th><th>Key Responsibilities</th><th>Sections Accessible</th></tr></thead>
+    <tbody>
+      <tr><td>Tenant Owner</td><td>Full platform management, billing, settings</td><td>All 12</td></tr>
+      <tr><td>Provider</td><td>Upload dictation, review/approve documents</td><td>9 of 12</td></tr>
+      <tr><td>Transcriptionist</td><td>Process assigned jobs, flag unclear audio</td><td>7 of 12</td></tr>
+      <tr><td>Medical Editor</td><td>Edit drafts, submit to QA</td><td>8 of 12</td></tr>
+      <tr><td>QA Analyst</td><td>QA review, approve/reject, return for rework</td><td>8 of 12</td></tr>
+      <tr><td>Billing User</td><td>View usage + invoices</td><td>3 of 12</td></tr>
+    </tbody>
+  </table>
+
+  <h3>1.4 Key Business Rules</h3>
+  <ul>
+    <li><strong>SLA calculation:</strong> Routine = 24h, Urgent = 12h, STAT = 4h (from submission to delivery)</li>
+    <li><strong>QA threshold:</strong> Quality score ≥ 70 to pass QA. Below 70 → rework</li>
+    <li><strong>Priority escalation:</strong> STAT jobs at 90% SLA → auto-escalate to Operations Manager</li>
+    <li><strong>Clarification SLA pause:</strong> When a clarification is open, the SLA timer pauses until resolved</li>
+    <li><strong>Document lock:</strong> Once provider e-signs, the document version is immutable</li>
+  </ul>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 2: STARTER — REFERENCE GUIDE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="tier-tag tier-starter">Starter Tier — $299</div>
+  <h2>Part 2: Starter Tier — Reference Guide</h2>
+  <p class="lead">Technical reference for the Starter tier — API endpoints, configuration, RBAC permissions, and troubleshooting.</p>
+
+  <h3>2.1 API Endpoints (Starter Tier)</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>GET</td><td><code>/api/medflow/jobs</code></td><td>List all transcription jobs with relations</td></tr>
+      <tr><td>POST</td><td><code>/api/medflow/jobs</code></td><td>Create a new job from upload form</td></tr>
+      <tr><td>POST</td><td><code>/api/medflow/job-status</code></td><td>Advance job workflow status</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/dashboard</code></td><td>Aggregate metrics for Overview</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/options</code></td><td>Dropdown options (providers, facilities, etc.)</td></tr>
+      <tr><td>POST</td><td><code>/api/medflow/upload</code></td><td>Upload dictation audio + create job</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/team</code></td><td>Team members + skills + shifts</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/templates</code></td><td>Document templates library</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/clarifications</code></td><td>Clarification requests + messages</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/billing</code></td><td>Subscription + usage records</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/notifications</code></td><td>Notification list</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 Configuration</h3>
+  <table>
+    <thead><tr><th>Config File</th><th>Purpose</th><th>Key Settings</th></tr></thead>
+    <tbody>
+      <tr><td><code>.env</code></td><td>Environment variables</td><td>DATABASE_URL, AUTH_SECRET</td></tr>
+      <tr><td><code>next.config.ts</code></td><td>Next.js configuration</td><td>output: "standalone", typescript.ignoreBuildErrors</td></tr>
+      <tr><td><code>prisma/schema.prisma</code></td><td>Database schema</td><td>24+ models, SQLite provider</td></tr>
+      <tr><td><code>src/lib/medflow/constants.ts</code></td><td>Nav items, kanban columns, plans</td><td>NAV_ITEMS (12 sections), KANBAN_COLUMNS (7)</td></tr>
+      <tr><td><code>src/lib/medflow/rbac.ts</code></td><td>Role-based access control</td><td>6 roles, SECTION_PERMISSIONS</td></tr>
+      <tr><td><code>src/app/globals.css</code></td><td>Theme + scrollbar styles</td><td>--mf-primary: #0B5345, --mf-secondary: #1ABC9C</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.3 RBAC Permissions (Starter — 6 roles)</h3>
+  <table>
+    <thead><tr><th>Role</th><th>Sections</th><th>Actions</th></tr></thead>
+    <tbody>
+      <tr><td>Tenant Owner</td><td>All 12</td><td>All (upload, assign, approve, deliver, manage users)</td></tr>
+      <tr><td>Provider</td><td>Overview, Jobs, Queue, Upload, Documents, Clarifications, Quality, Analytics</td><td>Upload, approve, e-sign</td></tr>
+      <tr><td>Transcriptionist</td><td>Overview, Jobs, Queue, Documents, Clarifications</td><td>Advance workflow, request clarification</td></tr>
+      <tr><td>Medical Editor</td><td>+ Quality</td><td>+ QA review</td></tr>
+      <tr><td>QA Analyst</td><td>+ Analytics</td><td>+ QA reject/rework</td></tr>
+      <tr><td>Billing User</td><td>Overview, Billing, Analytics</td><td>View billing, export data</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.4 Troubleshooting</h3>
+  <table>
+    <thead><tr><th>Issue</th><th>Cause</th><th>Solution</th></tr></thead>
+    <tbody>
+      <tr><td>"Failed to load" on jobs</td><td>Database not seeded</td><td>Run <code>bun run prisma/seed.ts</code></td></tr>
+      <tr><td>White page on startup</td><td>Dependencies not installed</td><td>Run <code>bun install</code></td></tr>
+      <tr><td>Kanban sidebar disappears</td><td>Flexbox overflow</td><td>Fixed via <code>min-w-0</code> on main container</td></tr>
+      <tr><td>502 on AI Agents</td><td>FastAPI not running</td><td>Starter uses static fallback — sections show demo data without FastAPI</td></tr>
+    </tbody>
+  </table>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 3: STARTER — INFRASTRUCTURE & INSTALLATION GUIDE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="tier-tag tier-starter">Starter Tier — $299</div>
+  <h2>Part 3: Starter Tier — Infrastructure & Installation Guide</h2>
+  <p class="lead">Setup guide for Linux, Windows, and macOS. The Starter tier uses SQLite (no database server needed) and does NOT require the FastAPI backend (sections use static fallback data).</p>
+
+  <h3>3.1 Prerequisites</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>Version</th><th>Linux</th><th>Windows</th><th>macOS</th></tr></thead>
+    <tbody>
+      <tr><td>Bun (or Node.js)</td><td>Bun 1.0+ / Node 20+</td><td><code>curl -fsSL bun.sh/install | bash</code></td><td><code>irm bun.sh/install.ps1 | iex</code></td><td><code>brew install bun</code></td></tr>
+      <tr><td>Python (optional)</td><td>3.12+</td><td><code>sudo apt install python3</code></td><td>Download from python.org</td><td><code>brew install python</code></td></tr>
+      <tr><td>Git (optional)</td><td>2.40+</td><td><code>sudo apt install git</code></td><td>Download from git-scm.com</td><td><code>brew install git</code></td></tr>
+    </tbody>
+  </table>
+  <p><strong>Note:</strong> Python + Git are optional for Starter. The app works with just Bun/Node.js + SQLite.</p>
+
+  <h3>3.2 Linux Installation (Ubuntu/Debian)</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><p>Install Bun:</p><div class="code-block">curl -fsSL https://bun.sh/install | bash
+source ~/.bashrc</div></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><p>Extract the ZIP + navigate:</p><div class="code-block">unzip medflow-starter-v1.0.0.zip -d medflow
+cd medflow</div></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><p>Install dependencies + setup database:</p><div class="code-block">bun install
+cp .env.example .env
+bun run db:push
+bun run prisma/seed.ts</div></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><p>Start the app:</p><div class="code-block">bun run dev
+# Open http://localhost:3000</div></div></div>
+
+  <h3>3.3 Windows Installation</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><p>Install Bun (PowerShell as Administrator):</p><div class="code-block">irm bun.sh/install.ps1 | iex</div><p>Or install Node.js 20+ from https://nodejs.org (use <code>npm</code> instead of <code>bun</code>)</p></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><p>Extract the ZIP: Right-click → "Extract All" → choose folder (e.g., <code>C:\Projects\medflow</code>)</p></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><p>Open PowerShell + setup:</p><div class="code-block">cd C:\Projects\medflow
+bun install
+copy .env.example .env
+bun run db:push
+bun run prisma/seed.ts</div></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><p>Start:</p><div class="code-block">bun run dev
+# Open http://localhost:3000</div></div></div>
+
+  <h3>3.4 macOS Installation</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><p>Install Homebrew + Bun:</p><div class="code-block">/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install bun</div></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><p>Extract + setup:</p><div class="code-block">unzip medflow-starter-v1.0.0.zip -d medflow
+cd medflow
+bun install
+cp .env.example .env
+bun run db:push
+bun run prisma/seed.ts</div></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><p>Start:</p><div class="code-block">bun run dev</div></div></div>
+
+  <h3>3.5 Environment Variables (Starter)</h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Required?</th><th>Default/Example</th></tr></thead>
+    <tbody>
+      <tr><td>DATABASE_URL</td><td><span class="badge b-red">Yes</span></td><td><code>file:./db/custom.db</code> (SQLite)</td></tr>
+      <tr><td>AUTH_SECRET</td><td><span class="badge b-red">Yes</span></td><td>Random 32+ char string</td></tr>
+      <tr><td>NEXTAUTH_URL</td><td><span class="badge b-red">Yes</span></td><td><code>http://localhost:3000</code></td></tr>
+      <tr><td>FASTAPI_URL</td><td><span class="badge b-amber">Optional</span></td><td><code>http://localhost:8000</code></td></tr>
+      <tr><td>OPENAI_API_KEY</td><td><span class="badge b-amber">Optional</span></td><td>For real AI (Starter uses static fallback)</td></tr>
+      <tr><td>STRIPE_SECRET_KEY</td><td><span class="badge b-amber">Optional</span></td><td>For real billing (Starter shows mock data)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Starter Tier Limitations</div>
+    <div class="callout-text">No AI agents (static fallback data only) · No voice chatbot · No live dictation · No compliance tools · No auto-pilot · No autonomous SOC · 12 of 29 sections · 6 of 12 roles · Basic billing view only</div>
+  </div>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 4: PROFESSIONAL — BUSINESS PROCESS GUIDE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="tier-tag tier-pro">Professional Tier — $599</div>
+  <h2>Part 4: Professional Tier — Business Process Guide</h2>
+  <p class="lead">The Professional tier adds AI agents, operational intelligence, compliance, and client-facing features. 19 sections + full FastAPI backend with 10 AI agents + entity extraction + hallucination detection + voice chatbot + live dictation.</p>
+
+  <h3>4.1 Additional Sections (vs Starter — 7 new)</h3>
+  <table>
+    <thead><tr><th>#</th><th>New Section</th><th>Business Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>13</td><td>AI Agents</td><td>10 AI agents (transcription, QA, routing, delivery, etc.) — run agents, view status</td></tr>
+      <tr><td>14</td><td>AI Ops Copilot</td><td>Manager-facing predictive dashboard — SLA breach predictions, rework alerts, staffing recommendations</td></tr>
+      <tr><td>15</td><td>Workflow & Routing</td><td>Visual rule builder + confidence-calibrated routing + self-optimizing routing</td></tr>
+      <tr><td>16</td><td>Workforce Mgmt</td><td>Leaderboard, weekly shift grid, skills matrix, burnout-risk detection</td></tr>
+      <tr><td>17</td><td>Continuous Compliance</td><td>16 live controls + 1-click audit pack + auto-remediation</td></tr>
+      <tr><td>18</td><td>Client Portal</td><td>White-labeled portal for healthcare clients — branding, users, stats</td></tr>
+      <tr><td>19</td><td>Mobile App</td><td>iOS/Android provider app config + phone mockup preview</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 AI Agent Workflow (Professional)</h3>
+  <p>The Professional tier includes the full FastAPI backend with 10 AI agents. The pipeline runs semi-autonomously:</p>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><p><strong>Intake Validation Agent</strong> — validates metadata, checksum, malware scan. Auto-creates job + SLA deadline.</p></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><p><strong>Transcription Agent</strong> (whisper-large-v3) — speech-to-text with confidence scoring. Flags low-confidence regions.</p></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><p><strong>Structuring Agent</strong> (glm-4-longcontext) — converts transcript to structured document (SOAP sections, entity extraction).</p></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><p><strong>QA Agent</strong> — detects medication conflicts, laterality errors, negation issues, hallucination flags.</p></div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><p><strong>Allocation Agent</strong> — routes to best editor (specialty + shift + QA history). Notifies assigned user.</p></div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body"><p><strong>SLA / Delivery / Billing / Security / Reporting Agents</strong> — monitor throughout the lifecycle.</p></div></div>
+
+  <h3>4.3 Entity Extraction + Hallucination Detection</h3>
+  <p>From the Job Detail Drawer, editors can:</p>
+  <ul>
+    <li><strong>Extract Entities</strong> — AI auto-suggests SNOMED CT, ICD-10, CPT, RxNorm codes from the transcript. Editor reviews + approves. Never auto-applied.</li>
+    <li><strong>Detect Hallucinations</strong> — AI scans for medication conflicts (dose discrepancies), laterality conflicts (left/right), negation conflicts (denies vs reports), numeric inconsistencies. Flags with severity + recommendation.</li>
+  </ul>
+
+  <h3>4.4 Voice Chatbot</h3>
+  <p>The Professional tier includes a floating Voice Chatbot (bottom-right) with:</p>
+  <ul>
+    <li><strong>LLM chat</strong> — ask questions about the workflow, get AI-powered answers</li>
+    <li><strong>ASR (speech-to-text)</strong> — speak into the mic, the chatbot transcribes + responds</li>
+    <li><strong>TTS (text-to-speech)</strong> — AI responses are spoken aloud</li>
+    <li><strong>Autonomous agent-run</strong> — "Run Transcription Agent" → the chatbot triggers the FastAPI agent + reports the result</li>
+    <li><strong>Quick-action chips</strong> — one-click buttons to run specific agents</li>
+  </ul>
+
+  <h3>4.5 Live Dictation</h3>
+  <p>Real-time streaming transcription — provider speaks into the mic, the transcript appears word-by-word with confidence coloring (green ≥0.95, amber 0.80-0.95, red <0.80). Submit as a new job when done.</p>
+
+  <h3>4.6 Compliance Management</h3>
+  <p>The Continuous Compliance section shows 16 live controls (HIPAA, GDPR, ISO 27001, ISO 13485, HITRUST, SOC 2) with real-time status. The 1-click audit pack generator creates a downloadable evidence bundle. Auto-remediation auto-fixes control failures.</p>
+
+  <h3>4.7 Daily Operational Workflow (Professional)</h3>
+  <p>In addition to the Starter daily workflow, Professional tier managers should:</p>
+  <ul>
+    <li><strong>Morning:</strong> Check the AI Ops Copilot for SLA breach predictions + staffing recommendations</li>
+    <li><strong>Weekly:</strong> Review the Self-Optimizing Routing panel for auto-adjustments + before/after metrics</li>
+    <li><strong>Monthly:</strong> Generate audit packs from Continuous Compliance for internal review</li>
+    <li><strong>Quarterly:</strong> Review the Workforce Management leaderboard for productivity + burnout trends</li>
+    <li><strong>As needed:</strong> Use the Voice Chatbot to run AI agents + ask operational questions</li>
+  </ul>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 5: PROFESSIONAL — REFERENCE GUIDE (condensed — shared infra) -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="tier-tag tier-pro">Professional Tier — $599</div>
+  <h2>Part 5: Professional Tier — Reference Guide</h2>
+
+  <h3>5.1 Additional API Endpoints (vs Starter)</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>GET</td><td><code>/api/ai/agents</code></td><td>List 10 AI agents (via FastAPI proxy)</td></tr>
+      <tr><td>POST</td><td><code>/api/ai/agents/{id}/run</code></td><td>Run an AI agent</td></tr>
+      <tr><td>POST</td><td><code>/api/ai/entities/extract</code></td><td>Medical entity extraction (SNOMED/ICD-10/CPT/RxNorm)</td></tr>
+      <tr><td>POST</td><td><code>/api/ai/hallucination/detect</code></td><td>Hallucination + conflict detection</td></tr>
+      <tr><td>POST</td><td><code>/api/ai/copilot/summarize</code></td><td>AI Ops Copilot predictive summary</td></tr>
+      <tr><td>POST</td><td><code>/api/chat</code></td><td>LLM chat (z-ai-web-dev-sdk)</td></tr>
+      <tr><td>POST</td><td><code>/api/chat/asr</code></td><td>Speech-to-text</td></tr>
+      <tr><td>POST</td><td><code>/api/chat/tts</code></td><td>Text-to-speech</td></tr>
+      <tr><td>POST</td><td><code>/api/chat/agent</code></td><td>Trigger agent run from chatbot</td></tr>
+      <tr><td>POST</td><td><code>/api/streaming/transcribe-chunk</code></td><td>Real-time ASR for live dictation</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/controls</code></td><td>16 live compliance controls</td></tr>
+      <tr><td>POST</td><td><code>/api/medflow/audit-pack</code></td><td>Generate audit evidence bundle</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/stripe</code></td><td>Stripe billing data</td></tr>
+      <tr><td>GET/POST</td><td><code>/api/medflow/workflow-rules</code></td><td>Workflow rule CRUD</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/wfm</code></td><td>Workforce management data</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/client-portal</code></td><td>Client portal config</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/mobile-config</code></td><td>Mobile app config</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/smart-apps</code></td><td>SMART on FHIR app catalog</td></tr>
+      <tr><td>GET/POST</td><td><code>/api/medflow/sra</code></td><td>HIPAA SRA questionnaire + scoring</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.2 FastAPI Backend Endpoints</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>GET</td><td><code>/api/health</code></td><td>Service health check</td></tr>
+      <tr><td>GET</td><td><code>/api/agents</code></td><td>10 AI agents</td></tr>
+      <tr><td>POST</td><td><code>/api/agents/{id}/run</code></td><td>Run agent (simulated)</td></tr>
+      <tr><td>GET</td><td><code>/api/db/connectors</code></td><td>5 DB connectors</td></tr>
+      <tr><td>POST</td><td><code>/api/db/connectors/test</code></td><td>Test DB connection</td></tr>
+      <tr><td>GET</td><td><code>/api/fhir/{job_id}</code></td><td>FHIR R4 DocumentReference</td></tr>
+      <tr><td>GET</td><td><code>/api/hl7/{job_id}</code></td><td>HL7 v2.5 MDM^T02</td></tr>
+      <tr><td>GET/POST</td><td><code>/api/fhir/subscription</code></td><td>FHIR subscriptions</td></tr>
+      <tr><td>POST</td><td><code>/api/direct/send</code></td><td>DirectTrust messaging</td></tr>
+      <tr><td>POST</td><td><code>/api/entities/extract</code></td><td>Entity extraction</td></tr>
+      <tr><td>POST</td><td><code>/api/hallucination/detect</code></td><td>Hallucination detection</td></tr>
+      <tr><td>POST</td><td><code>/api/copilot/summarize</code></td><td>Copilot summary</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.3 RBAC (Professional — 12 roles)</h3>
+  <p>Professional adds 6 more roles vs Starter: Onsite Coordinator, Offshore Delivery Manager, Auditor/Compliance Officer, Support User, plus full permissions for all existing roles across the 19 sections.</p>
+
+  <div class="callout">
+    <div class="callout-title">3-Tier Data Resilience</div>
+    <div class="callout-text">Professional sections use 3-tier fallback: (1) Live FastAPI fetch via gateway/proxy, (2) Server-embedded data via AiDataBootstrap (SSR), (3) Static fallback hardcoded in JS bundle. Sections never show "Failed to load".</div>
+  </div>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 6: PROFESSIONAL — INFRASTRUCTURE (shared with Starter + FastAPI) -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="tier-tag tier-pro">Professional Tier — $599</div>
+  <h2>Part 6: Professional Tier — Infrastructure & Installation</h2>
+  <p class="lead">Professional tier requires the FastAPI backend (port 8000) in addition to the Next.js frontend. Supports SQLite or PostgreSQL. Includes Docker Compose for full-stack local development.</p>
+
+  <h3>6.1 Additional Prerequisites (vs Starter)</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>Required?</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Python 3.12+</td><td><span class="badge b-red">Yes</span></td><td>FastAPI backend (AI agents)</td></tr>
+      <tr><td>pip</td><td><span class="badge b-red">Yes</span></td><td>Python package installer</td></tr>
+      <tr><td>Docker (optional)</td><td><span class="badge b-amber">Optional</span></td><td>Full-stack via docker-compose (Postgres + Redis + MinIO + FastAPI)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.2 Starting the FastAPI Backend</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><p>Install Python dependencies:</p><div class="code-block">cd mini-services/ai-agents-service
+pip install -r requirements.txt</div></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><p>Start the FastAPI server:</p><div class="code-block">python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# Swagger UI at http://localhost:8000/docs</div></div></div>
+
+  <h3>6.3 Docker Compose (Full Stack)</h3>
+  <div class="code-block">docker-compose up -d
+# Starts: PostgreSQL (5432), Redis (6379), MinIO (9000/9001), FastAPI (8000)
+# Then run: bun run db:push + bun run prisma/seed.ts + bun run dev</div>
+
+  <h3>6.4 Environment Variables (Professional — additional)</h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Required?</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>FASTAPI_URL</td><td><span class="badge b-red">Yes</span></td><td><code>http://localhost:8000</code></td></tr>
+      <tr><td>OPENAI_API_KEY</td><td><span class="badge b-amber">Optional</span></td><td>For real AI (Professional uses simulated agents by default)</td></tr>
+      <tr><td>STRIPE_SECRET_KEY</td><td><span class="badge b-amber">Optional</span></td><td>For real billing (Professional shows mock Stripe data)</td></tr>
+      <tr><td>ZAI_API_KEY</td><td><span class="badge b-amber">Optional</span></td><td>z-ai-web-dev-sdk (pre-configured in sandbox)</td></tr>
+      <tr><td>S3_ENDPOINT</td><td><span class="badge b-amber">Optional</span></td><td>Object storage for audio files</td></tr>
+    </tbody>
+  </table>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 7-9: ENTERPRISE (condensed — key differences) -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="tier-tag tier-enterprise">Enterprise Tier — $1,499</div>
+  <h2>Part 7: Enterprise Tier — Business Process Guide</h2>
+  <p class="lead">Enterprise adds full autonomy, AI-driven security, and advanced compliance. 25 sections + all Professional features PLUS Auto-Pilot, Autonomous SOC, AI Model Health, AI Explainability, Patient Portal, Zero Trust, SIEM, Voice Ops.</p>
+
+  <h3>7.1 Additional Sections (vs Professional — 6 new)</h3>
+  <table>
+    <thead><tr><th>#</th><th>New Section</th><th>Business Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>20</td><td>Auto-Pilot</td><td>Master switch for autonomous pipeline — 6-stage flow + exception queue (~15% human review)</td></tr>
+      <tr><td>21</td><td>Autonomous SOC</td><td>AI-driven security — auto-detect + auto-respond to threats (142ms vs 4hr human)</td></tr>
+      <tr><td>22</td><td>AI Model Health</td><td>Drift detection + auto-retraining pipeline — AI improves itself</td></tr>
+      <tr><td>23</td><td>AI Explainability</td><td>Every AI decision auditable — contributing factors, alternatives, EU AI Act compliant</td></tr>
+      <tr><td>24</td><td>Patient Portal</td><td>HIPAA-compliant patient access — documents, consent, DSR, secure messaging, FHIR export</td></tr>
+      <tr><td>25</td><td>Voice Ops</td><td>"Hey MedFlow" voice-activated operations — hands-free platform control</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.2 Auto-Pilot Workflow</h3>
+  <p>When Auto-Pilot is ON, the entire pipeline runs autonomously:</p>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><p><strong>Intake → Transcription → Structuring → QA → Allocation → Delivery</strong> — all run without human clicks</p></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><p>AI auto-classifies each job: green (auto-approve + deliver), amber (route to editor, skip QA), red (human review)</p></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><p>Only ~15% of jobs appear in the Exception Queue for human review</p></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><p>Self-Optimizing Routing learns from outcomes weekly — auto-adjusts editor weights</p></div></div>
+
+  <h3>7.3 Autonomous SOC Process</h3>
+  <ul>
+    <li>AI monitors for: bulk downloads, impossible travel, privilege escalation, brute force, off-hours access</li>
+    <li>Auto-responds: session revoke, IP block, access restrict, MFA challenge, quarantine</li>
+    <li>Response playbooks: 4 pre-configured (bulk download, impossible travel, privilege escalation, brute force)</li>
+    <li>Mean time to respond: 142ms (vs 4 hours for a human SOC)</li>
+    <li>False positive rate: 3.2%</li>
+  </ul>
+
+  <h3>7.4 Enterprise Daily Workflow</h3>
+  <ul>
+    <li><strong>Morning:</strong> Review Auto-Pilot exception queue (only ~15% of jobs need human review). Check Autonomous SOC threat feed.</li>
+    <li><strong>Weekly:</strong> Review AI Model Health for drift + retraining status. Check AI Explainability for decision audit trail.</li>
+    <li><strong>Monthly:</strong> Generate compliance audit pack. Review Patient Portal DSR requests. Test Voice Ops commands.</li>
+    <li><strong>Quarterly:</strong> Complete HIPAA SRA (12-question questionnaire). Review Zero Trust posture + SIEM coverage.</li>
+  </ul>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<div class="page">
+  <div class="tier-tag tier-enterprise">Enterprise Tier — $1,499</div>
+  <h2>Part 8: Enterprise Tier — Reference + Infrastructure</h2>
+
+  <h3>8.1 Additional API Endpoints (vs Professional)</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>GET/POST</td><td><code>/api/medflow/autopilot</code></td><td>Auto-pilot toggle + exception queue</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/autonomous-soc</code></td><td>Threat feed + response playbooks</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/model-health</code></td><td>Model drift + retraining pipeline</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/explainability</code></td><td>AI decision explanations</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/auto-remediation</code></td><td>Auto-fix compliance log</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/routing-optimization</code></td><td>Self-optimizing routing metrics</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/zero-trust</code></td><td>Zero trust posture telemetry</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/siem</code></td><td>SIEM connection + alert feed</td></tr>
+      <tr><td>GET</td><td><code>/api/medflow/patient-portal</code></td><td>Patient documents + consent + DSR</td></tr>
+      <tr><td>POST</td><td><code>/api/medflow/voice-ops</code></td><td>Natural language command parser</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8.2 Enterprise Infrastructure</h3>
+  <p>Enterprise tier supports the same installation as Professional, PLUS:</p>
+  <ul>
+    <li><strong>PostgreSQL</strong> recommended (not SQLite) for production multi-user workloads</li>
+    <li><strong>Object storage</strong> (S3/MinIO) for audio file storage at scale</li>
+    <li><strong>Redis</strong> for background job queues (BullMQ) — future use</li>
+    <li><strong>Multi-region deployment</strong> — Vercel (frontend) + Render/Railway (FastAPI) + managed Postgres</li>
+    <li><strong>Compliance PDF</strong> included (34-page HIPAA/GDPR/EU MDR spec)</li>
+  </ul>
+
+  <h3>8.3 Enterprise Environment Variables (additional)</h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Required?</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>DATABASE_URL</td><td><span class="badge b-red">Yes</span></td><td>PostgreSQL recommended (<code>postgresql://...</code>)</td></tr>
+      <tr><td>ENCRYPTION_KEY</td><td><span class="badge b-red">Yes</span></td><td>Field-level encryption (AES-256-GCM)</td></tr>
+      <tr><td>SENTRY_DSN</td><td><span class="badge b-amber">Optional</span></td><td>Error tracking + monitoring</td></tr>
+      <tr><td>S3_*</td><td><span class="badge b-amber">Recommended</span></td><td>Object storage for audio + documents</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Enterprise Compliance</div>
+    <div class="callout-text">Includes 34-page compliance specification PDF covering HIPAA, GDPR, EU MDR, ISO 13485/27001, HITRUST, SOC 2. Use the built-in HIPAA SRA tool (12-question questionnaire) for annual risk analysis.</div>
+  </div>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 10-12: RESELLER (condensed — everything) -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="tier-tag tier-reseller">Reseller Tier — $4,999</div>
+  <h2>Part 10: Reseller Tier — Business Process Guide</h2>
+  <p class="lead">The Reseller tier includes EVERYTHING — all 29 sections, full FastAPI backend, all AI agents, voice chatbot + voice ops + live dictation, full autonomy (auto-pilot, SOC, model health, explainability, self-remediation, self-optimizing routing), full compliance (16 controls + audit pack + auto-remediation + HIPAA SRA + zero trust + SIEM), patient portal, client portal, mobile app, SMART on FHIR, Stripe billing, AND both PDFs (compliance spec + monetization strategy).</p>
+
+  <h3>10.1 Full Section List (29 sections)</h3>
+  <table>
+    <thead><tr><th>Group</th><th>Sections</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Workspace</strong></td><td>Overview, Jobs (Kanban), My Queue, Upload Dictation, Live Dictation, Documents, Clarifications</td></tr>
+      <tr><td><strong>Operations</strong></td><td>AI Ops Copilot, Auto-Pilot, Workflow & Routing, Workforce Mgmt, Quality, Templates, Analytics, AI Agents, AI Model Health, AI Explainability</td></tr>
+      <tr><td><strong>Configuration</strong></td><td>Continuous Compliance, Integrations, SMART on FHIR, Patient Portal, Client Portal, Mobile App, Team, Billing</td></tr>
+      <tr><td><strong>Administration</strong></td><td>Autonomous SOC, Audit & Security, HIPAA SRA, Settings</td></tr>
+    </tbody>
+  </table>
+
+  <h3>10.2 Reseller-Specific Features</h3>
+  <ul>
+    <li><strong>Full white-label rights</strong> — rebrand + resell to clients</li>
+    <li><strong>Monetization Strategy PDF</strong> (13 pages) — 7 revenue streams, 3 SaaS tiers, 11-region pricing</li>
+    <li><strong>Compliance Specification PDF</strong> (34 pages) — HIPAA, GDPR, EU MDR, ISO 13485/27001, HITRUST, SOC 2</li>
+    <li><strong>GITHUB_WORKFLOW.md</strong> — git + release + tier packaging guide</li>
+    <li><strong>All documentation</strong> — README, LICENSE, CHANGELOG, ARCHITECTURE, DEPLOYMENT, API_REFERENCE, CUSTOMIZATION, GITHUB_WORKFLOW</li>
+    <li><strong>Lifetime updates</strong> — free updates for life</li>
+    <li><strong>2 custom feature requests</strong> included</li>
+  </ul>
+
+  <h3>10.3 Reseller Business Model</h3>
+  <p>As a Reseller, you can:</p>
+  <ul>
+    <li>Rebrand MedFlow as your own product + sell on Gumroad/Payhip/your website</li>
+    <li>Set your own pricing + keep 100% of revenue</li>
+    <li>Offer hosted SaaS (recurring revenue) to non-technical buyers</li>
+    <li>Offer done-for-you installation services</li>
+    <li>Create tiered pricing (Starter/Professional/Enterprise/Reseller) using the tier-manifest system</li>
+    <li>Must include attribution: "Based on MedFlow Transcribe AI boilerplate"</li>
+  </ul>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<div class="page">
+  <div class="tier-tag tier-reseller">Reseller Tier — $4,999</div>
+  <h2>Part 11-12: Reseller — Reference + Infrastructure</h2>
+  <p class="lead">The Reseller tier includes ALL API endpoints, ALL configuration options, ALL deployment methods, and ALL documentation. Reference the Professional + Enterprise guides for the full API list — Reseller includes everything.</p>
+
+  <h3>11.1 Additional Reseller Assets</h3>
+  <table>
+    <thead><tr><th>Asset</th><th>Location</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Compliance Spec PDF</td><td><code>assets/MedFlow_Compliance_Specification.pdf</code></td><td>34 pages — HIPAA/GDPR/EU MDR/ISO</td></tr>
+      <tr><td>Monetization Strategy PDF</td><td><code>assets/MedFlow_Monetization_Strategy.pdf</code></td><td>13 pages — 7 revenue streams, pricing</td></tr>
+      <tr><td>Monetization Strategy HTML</td><td><code>assets/MedFlow_Monetization_Strategy.html</code></td><td>Editable HTML source</td></tr>
+      <tr><td>GitHub Workflow</td><td><code>docs/GITHUB_WORKFLOW.md</code></td><td>Git + release + tier packaging</td></tr>
+      <tr><td>Full LICENSE</td><td><code>LICENSE.md</code></td><td>4-tier license with reseller rights</td></tr>
+    </tbody>
+  </table>
+
+  <h3>11.2 Reseller Deployment Options</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Best For</th><th>Effort</th></tr></thead>
+    <tbody>
+      <tr><td>Vercel + Render</td><td>Quick deploy (frontend + backend)</td><td>30 min</td></tr>
+      <tr><td>Docker Compose</td><td>Full-stack local/on-prem</td><td>15 min</td></tr>
+      <tr><td>AWS ECS</td><td>Enterprise production</td><td>2-4 hours</td></tr>
+      <tr><td>On-prem (air-gapped)</td><td>Sovereign/health-system</td><td>4-8 hours</td></tr>
+      <tr><td>Fly.io / Railway</td><td>Simple container deploy</td><td>20 min</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Reseller Attribution Requirement</div>
+    <div class="callout-text">Resellers must include "Based on MedFlow Transcribe AI boilerplate" in their product documentation. Cannot claim to be the original creator. Cannot resell under the name "MedFlow Transcribe AI" — must rebrand.</div>
+  </div>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PART 13: TERMINOLOGY & ACRONYMS HANDBOOK -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2>Part 13: Terminology & Acronyms Handbook</h2>
+  <p class="lead">A comprehensive reference for all terms, acronyms, and concepts used across all 4 tiers of MedFlow Transcribe AI.</p>
+
+  <h3>13.1 Healthcare & Clinical Terms</h3>
+  <table>
+    <thead><tr><th>Term</th><th>Expansion</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td><strong>PHI</strong></td><td>Protected Health Information</td><td>Individually identifiable health information protected under HIPAA</td></tr>
+      <tr><td><strong>MRN</strong></td><td>Medical Record Number</td><td>Unique patient identifier within a healthcare facility</td></tr>
+      <tr><td><strong>NPI</strong></td><td>National Provider Identifier</td><td>10-digit unique identification number for healthcare providers (US)</td></tr>
+      <tr><td><strong>SOAP</strong></td><td>Subjective, Objective, Assessment, Plan</td><td>Standard clinical documentation format for progress notes</td></tr>
+      <tr><td><strong>H&P</strong></td><td>History and Physical</td><td>Comprehensive admission document with HPI, past history, ROS, physical exam</td></tr>
+      <tr><td><strong>CDS</strong></td><td>Clinical Decision Support</td><td>AI/electronic systems that provide clinicians with knowledge + patient-specific information</td></tr>
+      <tr><td><strong>EHR</strong></td><td>Electronic Health Record</td><td>Digital version of a patient's paper chart (Epic, Cerner, Allscripts)</td></tr>
+      <tr><td><strong>BAA</strong></td><td>Business Associate Agreement</td><td>Contract between a covered entity and a business associate handling PHI</td></tr>
+      <tr><td><strong>DSR</strong></td><td>Data Subject Rights / Data Subject Request</td><td>GDPR rights: access, rectification, erasure, portability, restriction, objection</td></tr>
+      <tr><td><strong>DPIA</strong></td><td>Data Protection Impact Assessment</td><td>GDPR Article 35 — risk assessment for high-risk processing</td></tr>
+      <tr><td><strong>SRA</strong></td><td>Security Risk Analysis</td><td>HIPAA annual requirement — OCR's #1 audit finding</td></tr>
+      <tr><td><strong>ePHI</strong></td><td>Electronic Protected Health Information</td><td>PHI in electronic form — subject to HIPAA Security Rule</td></tr>
+      <tr><td><strong>TAT</strong></td><td>Turnaround Time</td><td>Time from job submission to document delivery</td></tr>
+      <tr><td><strong>SLA</strong></td><td>Service Level Agreement</td><td>Contractual commitment to delivery time (STAT=4h, Urgent=12h, Routine=24h)</td></tr>
+      <tr><td><strong>BCMA</strong></td><td>Barcode Medication Administration</td><td>System verifying the "5 rights" of medication at point of administration</td></tr>
+      <tr><td><strong>PDMP</strong></td><td>Prescription Drug Monitoring Program</td><td>State-level database tracking controlled substance prescriptions</td></tr>
+      <tr><td><strong>EPCS</strong></td><td>Electronic Prescribing of Controlled Substances</td><td>DEA-compliant electronic prescribing for controlled substances</td></tr>
+      <tr><td><strong>RPM</strong></td><td>Remote Patient Monitoring</td><td>Remote collection of patient health data via connected devices</td></tr>
+      <tr><td><strong>SDOH</strong></td><td>Social Determinants of Health</td><td>Non-medical factors influencing health (food, housing, transport)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>13.2 Regulatory & Compliance Terms</h3>
+  <table>
+    <thead><tr><th>Term</th><th>Expansion</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td><strong>HIPAA</strong></td><td>Health Insurance Portability and Accountability Act</td><td>US law governing PHI privacy + security (45 CFR 160 + 164)</td></tr>
+      <tr><td><strong>HITECH</strong></td><td>Health Information Technology for Economic and Clinical Health Act</td><td>Strengthened HIPAA enforcement + breach notification</td></tr>
+      <tr><td><strong>GDPR</strong></td><td>General Data Protection Regulation</td><td>EU regulation on data protection (Reg. 2016/679)</td></tr>
+      <tr><td><strong>EU MDR</strong></td><td>European Medical Device Regulation</td><td>EU regulation for medical devices (Reg. 2017/745)</td></tr>
+      <tr><td><strong>EU IVDR</strong></td><td>European In Vitro Diagnostic Regulation</td><td>EU regulation for in vitro diagnostics (Reg. 2017/746)</td></tr>
+      <tr><td><strong>EHDS</strong></td><td>European Health Data Space</td><td>EU regulation for health data sharing (Reg. 2025/327)</td></tr>
+      <tr><td><strong>NIS2</strong></td><td>Network and Information Security Directive 2</td><td>EU cybersecurity directive (Dir. 2022/2555)</td></tr>
+      <tr><td><strong>PIPEDA</strong></td><td>Personal Information Protection and Electronic Documents Act</td><td>Canadian data protection law</td></tr>
+      <tr><td><strong>PHIPA</strong></td><td>Personal Health Information Protection Act</td><td>Ontario health privacy law</td></tr>
+      <tr><td><strong>21 CFR Part 11</strong></td><td>FDA Electronic Records + Signatures</td><td>US regulation for electronic signatures in FDA-regulated industries</td></tr>
+      <tr><td><strong>SaMD</strong></td><td>Software as a Medical Device</td><td>Software intended for medical purposes without being part of a hardware device</td></tr>
+      <tr><td><strong>ISO 13485</strong></td><td>Medical Device Quality Management System</td><td>International standard for medical device QMS</td></tr>
+      <tr><td><strong>ISO 27001</strong></td><td>Information Security Management System</td><td>International standard for information security</td></tr>
+      <tr><td><strong>ISO 14971</strong></td><td>Risk Management for Medical Devices</td><td>International standard for clinical risk management</td></tr>
+      <tr><td><strong>HITRUST CSF</strong></td><td>HITRUST Common Security Framework</td><td>Certifiable security + privacy framework for healthcare</td></tr>
+      <tr><td><strong>SOC 2</strong></td><td>Service Organization Control 2</td><td>AICPA audit report on security, availability, confidentiality</td></tr>
+      <tr><td><strong>NIST 800-63B</strong></td><td>Digital Identity Guidelines</td><td>US standard for authentication assurance levels (AAL1/AAL2/AAL3)</td></tr>
+      <tr><td><strong>NIST 800-207</strong></td><td>Zero Trust Architecture</td><td>US standard for zero trust security model</td></tr>
+      <tr><td><strong>UEBA</strong></td><td>User + Entity Behavior Analytics</td><td>ML-based insider threat detection</td></tr>
+      <tr><td><strong>WORM</strong></td><td>Write Once Read Many</td><td>Immutable storage for audit logs</td></tr>
+    </tbody>
+  </table>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+<div class="page">
+  <h3>13.3 Interoperability Standards</h3>
+  <table>
+    <thead><tr><th>Term</th><th>Expansion</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td><strong>FHIR</strong></td><td>Fast Healthcare Interoperability Resources</td><td>HL7 standard for RESTful healthcare data exchange (R4/R5)</td></tr>
+      <tr><td><strong>HL7 v2</strong></td><td>Health Level 7 Version 2</td><td>Pipe-delimited messaging standard (ADT, ORM, ORU, MDM)</td></tr>
+      <tr><td><strong>DICOM</strong></td><td>Digital Imaging and Communications in Medicine</td><td>Standard for medical imaging storage + transmission</td></tr>
+      <tr><td><strong>SNOMED CT</strong></td><td>Systematized Nomenclature of Medicine Clinical Terms</td><td>Comprehensive clinical terminology system</td></tr>
+      <tr><td><strong>LOINC</strong></td><td>Logical Observation Identifiers Names and Codes</td><td>Universal code system for lab + clinical observations</td></tr>
+      <tr><td><strong>ICD-10/11</strong></td><td>International Classification of Diseases</td><td>WHO diagnostic coding system</td></tr>
+      <tr><td><strong>RxNorm</strong></td><td>—</td><td>NLM standardized nomenclature for clinical drugs</td></tr>
+      <tr><td><strong>CPT</strong></td><td>Current Procedural Terminology</td><td>AMA medical procedure code set for billing</td></tr>
+      <tr><td><strong>SMART on FHIR</strong></td><td>Substitutable Medical Apps, Reusable Technologies</td><td>OAuth 2.0-based app launch framework for FHIR</td></tr>
+      <tr><td><strong>DirectTrust</strong></td><td>—</td><td>Secure email-based health information exchange (S/MIME)</td></tr>
+      <tr><td><strong>Carequality</strong></td><td>—</td><td>National health data sharing network (US)</td></tr>
+      <tr><td><strong>CommonWell</strong></td><td>—</td><td>Nationwide health data exchange network (US)</td></tr>
+      <tr><td><strong>TEFCA</strong></td><td>Trusted Exchange Framework and Common Agreement</td><td>ONC's national health information network framework</td></tr>
+      <tr><td><strong>IHE</strong></td><td>Integrating the Healthcare Enterprise</td><td>Profiles for standards-based health data exchange (XDS, XCA, MHD)</td></tr>
+      <tr><td><strong>CCDA</strong></td><td>Consolidated Clinical Document Architecture</td><td>HL7 standard for clinical document structure</td></tr>
+      <tr><td><strong>X12</strong></td><td>ASC X12</td><td>EDI standard for healthcare claims, eligibility, prior auth</td></tr>
+    </tbody>
+  </table>
+
+  <h3>13.4 AI & Technology Terms</h3>
+  <table>
+    <thead><tr><th>Term</th><th>Expansion</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td><strong>LLM</strong></td><td>Large Language Model</td><td>AI model for text generation + understanding (e.g., GPT-4, GLM-4)</td></tr>
+      <tr><td><strong>ASR</strong></td><td>Automatic Speech Recognition</td><td>AI speech-to-text conversion (e.g., Whisper)</td></tr>
+      <tr><td><strong>TTS</strong></td><td>Text-to-Speech</td><td>AI voice synthesis from text</td></tr>
+      <tr><td><strong>VLM</strong></td><td>Vision Language Model</td><td>AI model for image understanding + description</td></tr>
+      <tr><td><strong>NLP</strong></td><td>Natural Language Processing</td><td>AI for understanding human language (negation, temporal, entity extraction)</td></tr>
+      <tr><td><strong>CAC</strong></td><td>Computer-Assisted Coding</td><td>AI-assisted ICD-10/CPT code suggestion with encoder validation</td></tr>
+      <tr><td><strong>CDI</strong></td><td>Clinical Documentation Integrity</td><td>Process for ensuring clinical documentation accuracy + completeness</td></tr>
+      <tr><td><strong>DLP</strong></td><td>Data Loss Prevention</td><td>Policies + tools to prevent PHI exfiltration (email, USB, clipboard)</td></tr>
+      <tr><td><strong>PAM</strong></td><td>Privileged Access Management</td><td>Just-in-time elevation for admin access, no standing admin</td></tr>
+      <tr><td><strong>SBOM</strong></td><td>Software Bill of Materials</td><td>Inventory of software components + dependencies for vulnerability tracking</td></tr>
+      <tr><td><strong>HSM</strong></td><td>Hardware Security Module</td><td>FIPS 140-2 Level 3 physical device for cryptographic key management</td></tr>
+      <tr><td><strong>SIEM</strong></td><td>Security Information and Event Management</td><td>Centralized logging + threat detection (Splunk, Sentinel)</td></tr>
+      <tr><td><strong>SOC</strong></td><td>Security Operations Center</td><td>24/7 security monitoring + incident response team</td></tr>
+      <tr><td><strong>RBAC</strong></td><td>Role-Based Access Control</td><td>Access permissions based on user role</td></tr>
+      <tr><td><strong>ABAC</strong></td><td>Attribute-Based Access Control</td><td>Access permissions based on attributes (specialty, shift, client)</td></tr>
+      <tr><td><strong>SSO</strong></td><td>Single Sign-On</td><td>One login for multiple systems (SAML 2.0, OAuth 2.0, OIDC)</td></tr>
+      <tr><td><strong>MFA</strong></td><td>Multi-Factor Authentication</td><td>Two+ authentication factors (password + TOTP + WebAuthn)</td></tr>
+      <tr><td><strong>DRG</strong></td><td>Diagnosis-Related Group</td><td>Classification system for hospital billing (groups ICD codes)</td></tr>
+      <tr><td><strong>QMS</strong></td><td>Quality Management System</td><td>ISO 13485-compliant document control + design controls</td></tr>
+      <tr><td><strong>DHF/DMR/DHR</strong></td><td>Design History File / Device Master Record / Device History Record</td><td>ISO 13485 + 21 CFR 820 required documentation for medical devices</td></tr>
+    </tbody>
+  </table>
+
+  <h3>13.5 BPO & Operations Terms</h3>
+  <table>
+    <thead><tr><th>Term</th><th>Expansion</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td><strong>BPO</strong></td><td>Business Process Outsourcing</td><td>Contracting non-primary business functions to a third party</td></tr>
+      <tr><td><strong>TSO</strong></td><td>Transcription Service Organization</td><td>Company providing medical transcription services</td></tr>
+      <tr><td><strong>WFM</strong></td><td>Workforce Management</td><td>Shift scheduling, productivity tracking, skills management</td></tr>
+      <tr><td><strong>FinOps</strong></td><td>Financial Operations / Cloud Financial Operations</td><td>Cloud cost optimization + financial accountability</td></tr>
+      <tr><td><strong>CAPA</strong></td><td>Corrective and Preventive Action</td><td>Quality management process for addressing non-conformances</td></tr>
+      <tr><td><strong>PMS/PMCF</strong></td><td>Post-Market Surveillance / Post-Market Clinical Follow-up</td><td>EU MDR requirements for monitoring device performance post-launch</td></tr>
+      <tr><td><strong>PSUR</strong></td><td>Periodic Safety Update Report</td><td>EU MDR annual safety report</td></tr>
+      <tr><td><strong>CSV</strong></td><td>Computer System Validation</td><td>GAMP 5 risk-based validation (IQ/OQ/PQ)</td></tr>
+      <tr><td><strong>LACE+</strong></td><td>Length of stay, Acuity, Comorbidity, Emergency</td><td>Readmission risk prediction score</td></tr>
+      <tr><td><strong>NEWS2/MEWS</strong></td><td>National Early Warning Score / Modified Early Warning Score</td><td>Clinical deterioration scoring systems</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Author</div>
+    <div class="callout-text"><strong>Satyanarayana Gowd V V Sammeta</strong> — Applied AI & Data Science Engineer<br>This document is protected under SatyaVault. All terminology is current as of document version date. Regulatory citations should be verified against current published regulations.</div>
+  </div>
+
+  <div class="author-footer"><span class="name">Satyanarayana Gowd V V Sammeta · Applied AI & Data Science Engineer</span><span class="watermark-text">SatyaVault</span></div>
+</div>
+
+</body>
+</html>
